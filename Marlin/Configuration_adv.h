@@ -703,7 +703,7 @@
                                                 // Filament can be extruded repeatedly from the filament exchange menu to fill the hotend,
                                                 // or until outcoming filament color is not clear for filament color change
     #define FILAMENT_CHANGE_EXTRUDE_FEEDRATE 5  // Extrude filament feedrate in mm/s - must be slower than load feedrate
-    // #define FILAMENT_LOADUNLOAD_SUPPORT      // Enable filament loading and unloading directly from prepare menu
+    #define FILAMENT_LOADUNLOAD_SUPPORT         // Enable filament loading and unloading directly from prepare menu
   #endif
 #endif
 
