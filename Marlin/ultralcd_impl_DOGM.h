@@ -656,7 +656,7 @@ static void lcd_implementation_status_screen() {
     u8g.setPrintPos((START_COL) * (DOG_CHAR_WIDTH), row_y2);
   }
 
-  #if ENABLED(LCD_INFO_MENU) || ENABLED(FILAMENT_CHANGE_FEATURE)
+  #if ENABLED(LCD_INFO_MENU) || ENABLED(FILAMENT_CHANGE_FEATURE) || ENABLED(HAS_ABL)
 
     // Draw a static line of text in the same idiom as a menu item
     static void lcd_implementation_drawmenu_static(const uint8_t row, const char* pstr, const bool center=true, const bool invert=false, const char* valstr=NULL) {

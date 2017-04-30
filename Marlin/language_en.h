@@ -297,6 +297,12 @@
 #ifndef MSG_TUNE
   #define MSG_TUNE                            "Tune"
 #endif
+#ifndef MSG_CALIBRATE
+  #define MSG_CALIBRATE                       "Calibration"
+#endif
+#ifndef MSG_DISPLAY_LEVELING_GRID
+  #define MSG_DISPLAY_LEVELING_GRID           "Leveling info"
+#endif
 #ifndef MSG_PAUSE_PRINT
   #define MSG_PAUSE_PRINT                     "Pause print"
 #endif
@@ -563,7 +569,7 @@
   #define MSG_FILAMENT_CHANGE_OPTION_EXTRUDE  "Extrude more"
 #endif
 #ifndef MSG_FILAMENT_CHANGE_OPTION_RESUME
-  #define MSG_FILAMENT_CHANGE_OPTION_RESUME   "Resume print"
+  #define MSG_FILAMENT_CHANGE_OPTION_RESUME   "OK Done"
 #endif
 
 //
@@ -594,8 +600,8 @@
     #define MSG_FILAMENT_CHANGE_EXTRUDE_2       "filament extrude"
   #endif
   #ifndef MSG_FILAMENT_CHANGE_RESUME_1
-    #define MSG_FILAMENT_CHANGE_RESUME_1        "Wait for print"
-    #define MSG_FILAMENT_CHANGE_RESUME_2        "to resume"
+    #define MSG_FILAMENT_CHANGE_RESUME_1        "Wait for confirmation"
+    #define MSG_FILAMENT_CHANGE_RESUME_2        "---"
   #endif
 #else // LCD_HEIGHT < 4
   #ifndef MSG_FILAMENT_CHANGE_INIT_1

@@ -118,6 +118,7 @@ uint8_t lcdDrawUpdate = LCDVIEW_CLEAR_CALL_REDRAW; // Set when the LCD needs to 
   void lcd_main_menu();
   void lcd_tune_menu();
   void lcd_prepare_menu();
+  void lcd_calibration_menu();
   void lcd_move_menu();
   void lcd_control_menu();
   void lcd_control_temperature_menu();
@@ -669,32 +670,9 @@ void kill_screen(const char* lcd_msg) {
 	  }
 	#endif
 	
-    //
-    // Switch case light on/off
-    //
-    #if ENABLED(MENU_ITEM_CASE_LIGHT)
-      if (case_light_on)
-        MENU_ITEM(function, MSG_LIGHTS_OFF, toggle_case_light);
-      else
-        MENU_ITEM(function, MSG_LIGHTS_ON, toggle_case_light);
-    #endif
-
-    #if ENABLED(BLTOUCH)
-      if (!endstops.z_probe_enabled && TEST_BLTOUCH())
-        MENU_ITEM(gcode, MSG_BLTOUCH_RESET, PSTR("M280 P" STRINGIFY(Z_ENDSTOP_SERVO_NR) " S" STRINGIFY(BLTOUCH_RESET)));
-    #endif
-
-    if (planner.movesplanned() || IS_SD_PRINTING) {
-      MENU_ITEM(submenu, MSG_TUNE, lcd_tune_menu);
-    }
-    else {
-      MENU_ITEM(submenu, MSG_PREPARE, lcd_prepare_menu);
-      #if ENABLED(DELTA_CALIBRATION_MENU)
-        MENU_ITEM(submenu, MSG_DELTA_CALIBRATE, lcd_delta_calibrate_menu);
-      #endif
-    }
-    MENU_ITEM(submenu, MSG_CONTROL, lcd_control_menu);
-
+	//
+	// SD Card support on top (as it should mainly print)
+	//
     #if ENABLED(SDSUPPORT)
       if (card.cardOK) {
         if (card.isFileOpen()) {
@@ -718,6 +696,33 @@ void kill_screen(const char* lcd_msg) {
         #endif
       }
     #endif //SDSUPPORT
+	
+    //
+    // Switch case light on/off
+    //
+    #if ENABLED(MENU_ITEM_CASE_LIGHT)
+      if (case_light_on)
+        MENU_ITEM(function, MSG_LIGHTS_OFF, toggle_case_light);
+      else
+        MENU_ITEM(function, MSG_LIGHTS_ON, toggle_case_light);
+    #endif
+
+    #if ENABLED(BLTOUCH)
+      if (!endstops.z_probe_enabled && TEST_BLTOUCH())
+        MENU_ITEM(gcode, MSG_BLTOUCH_RESET, PSTR("M280 P" STRINGIFY(Z_ENDSTOP_SERVO_NR) " S" STRINGIFY(BLTOUCH_RESET)));
+    #endif
+
+    if (planner.movesplanned() || IS_SD_PRINTING) {
+      MENU_ITEM(submenu, MSG_TUNE, lcd_tune_menu);
+    }
+    else {
+      MENU_ITEM(submenu, MSG_PREPARE, lcd_prepare_menu);
+	  MENU_ITEM(submenu, MSG_CALIBRATE, lcd_calibration_menu);
+      #if ENABLED(DELTA_CALIBRATION_MENU)
+        MENU_ITEM(submenu, MSG_DELTA_CALIBRATE, lcd_delta_calibrate_menu);
+      #endif
+    }
+    MENU_ITEM(submenu, MSG_CONTROL, lcd_control_menu);
 
     #if ENABLED(LCD_INFO_MENU)
       MENU_ITEM(submenu, MSG_INFO_MENU, lcd_info_menu);
@@ -1283,7 +1288,6 @@ void kill_screen(const char* lcd_msg) {
    * "Prepare" submenu
    *
    */
-
   void lcd_prepare_menu() {
     START_MENU();
 
@@ -1302,22 +1306,7 @@ void kill_screen(const char* lcd_msg) {
       MENU_ITEM(gcode, MSG_AUTO_HOME_Z, PSTR("G28 Z"));
     #endif
 
-    //
-    // Set Home Offsets
-    //
-    MENU_ITEM(function, MSG_SET_HOME_OFFSETS, lcd_set_home_offsets);
-    //MENU_ITEM(gcode, MSG_SET_ORIGIN, PSTR("G92 X0 Y0 Z0"));
 
-    //
-    // Level Bed
-    //
-    #if HAS_ABL
-      MENU_ITEM(gcode, MSG_LEVEL_BED,
-        axis_homed[X_AXIS] && axis_homed[Y_AXIS] ? PSTR("G29") : PSTR("G28\nG29")
-      );
-    #elif ENABLED(MANUAL_BED_LEVELING)
-      MENU_ITEM(submenu, MSG_LEVEL_BED, lcd_level_bed);
-    #endif
 
     //
     // Move Axis
@@ -1385,6 +1374,90 @@ void kill_screen(const char* lcd_msg) {
     END_MENU();
   }
 
+  #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+  
+  /*static void print_bed_level() {
+    SERIAL_ECHOPGM("Bilinear Leveling Grid:\n ");
+    for (uint8_t x = 0; x < ABL_GRID_POINTS_X; x++) {
+      SERIAL_PROTOCOLPGM("    ");
+      if (x < 10) SERIAL_PROTOCOLCHAR(' ');
+      SERIAL_PROTOCOL((int)x);
+    }
+    SERIAL_EOL;
+    for (uint8_t y = 0; y < ABL_GRID_POINTS_Y; y++) {
+      if (y < 10) SERIAL_PROTOCOLCHAR(' ');
+      SERIAL_PROTOCOL((int)y);
+      for (uint8_t x = 0; x < ABL_GRID_POINTS_X; x++) {
+        SERIAL_PROTOCOLCHAR(' ');
+        float offset = bed_level_grid[x][y];
+        if (offset < 999.0) {
+          if (offset > 0) SERIAL_CHAR('+');
+          SERIAL_PROTOCOL_F(offset, 2);
+        }
+        else
+          SERIAL_PROTOCOLPGM(" ====");
+      }
+      SERIAL_EOL;
+    }
+    SERIAL_EOL;
+  }*/
+    /* NOT WORKING PROPERLY YET !!! */
+    void lcd_display_leveling_grid() {
+      if (lcd_clicked) { return lcd_goto_previous_menu(); }
+      char lgrid_lcd_line[ABL_GRID_POINTS_Y][(ABL_GRID_POINTS_X*5)] = {' '};
+      START_SCREEN();
+      for (uint8_t posy=0;posy<ABL_GRID_POINTS_Y;posy++) {
+        char lgrid_offset[5] = {'\0'};
+        for (uint8_t posx=0;posx<ABL_GRID_POINTS_X;posx++) {
+          dtostrf(bed_level_grid[posx][posy], 3, 2, lgrid_offset);
+          for (uint8_t i=0;i<4;i++) {
+              lgrid_lcd_line[posy][(posx*5)+i] = lgrid_offset[i];
+          }
+        }         
+      }
+      for (uint8_t i=ABL_GRID_POINTS_Y-1;i>=0;i--) {
+        STATIC_ITEM("", false,false, lgrid_lcd_line[i]);
+      }
+      END_SCREEN();
+    }
+  
+  
+  #endif
+  
+ /**
+  * "Calibration" submenu
+  */  
+  void lcd_calibration_menu() {
+	START_MENU();
+
+    //
+    // ^ Main
+    //
+    MENU_BACK(MSG_MAIN);
+	
+    //
+    // Set Home Offsets
+    //
+    MENU_ITEM(function, MSG_SET_HOME_OFFSETS, lcd_set_home_offsets);
+    //MENU_ITEM(gcode, MSG_SET_ORIGIN, PSTR("G92 X0 Y0 Z0"));
+
+    //
+    // Level Bed
+    //
+    #if HAS_ABL
+      MENU_ITEM(gcode, MSG_LEVEL_BED,
+        axis_homed[X_AXIS] && axis_homed[Y_AXIS] ? PSTR("G29") : PSTR("G28\nG29")
+      );
+	  #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+	    MENU_ITEM(submenu, MSG_DISPLAY_LEVELING_GRID, lcd_display_leveling_grid);
+      #endif
+    #elif ENABLED(MANUAL_BED_LEVELING)
+      MENU_ITEM(submenu, MSG_LEVEL_BED, lcd_level_bed);
+    #endif
+	
+	END_MENU();
+  }
+
   #if ENABLED(DELTA_CALIBRATION_MENU)
 
     void _goto_tower_pos(const float &a) {
@@ -1447,7 +1520,6 @@ void kill_screen(const char* lcd_msg) {
    * "Prepare" > "Move Axis" submenu
    *
    */
-
   void _lcd_move_xyz(const char* name, AxisEnum axis) {
     if (lcd_clicked) { return lcd_goto_previous_menu(); }
     ENCODER_DIRECTION_NORMAL();
@@ -1552,11 +1624,10 @@ void kill_screen(const char* lcd_msg) {
     if (_MOVE_XYZ_ALLOWED) {
       MENU_ITEM(submenu, MSG_MOVE_X, lcd_move_x);
       MENU_ITEM(submenu, MSG_MOVE_Y, lcd_move_y);
+	  MENU_ITEM(submenu, MSG_MOVE_Z, lcd_move_z); // Allowed 10mm moves
     }
 
     if (move_menu_scale < 10.0) {
-      if (_MOVE_XYZ_ALLOWED) MENU_ITEM(submenu, MSG_MOVE_Z, lcd_move_z);
-
       #if ENABLED(SWITCHING_EXTRUDER)
         if (active_extruder)
           MENU_ITEM(gcode, MSG_SELECT MSG_E1, PSTR("T0"));

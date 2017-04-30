@@ -396,6 +396,10 @@ extern uint8_t active_extruder;
   extern float mixing_factor[MIXING_STEPPERS];
 #endif
 
+#if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+  extern float bed_level_grid[ABL_GRID_POINTS_X][ABL_GRID_POINTS_Y];
+#endif
+
 void calculate_volumetric_multipliers();
 
 /**
