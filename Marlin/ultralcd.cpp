@@ -604,6 +604,13 @@ void kill_screen(const char* lcd_msg) {
       lcd_setstatus(MSG_PRINT_ABORTED, true);
     }
 
+    void lcd_sdcard_stopconfirm() {
+      START_MENU();
+      MENU_BACK(MSG_MAIN);
+      MENU_ITEM(function, MSG_STOP_PRINT, lcd_sdcard_stop);
+      END_MENU();
+    }
+
   #endif //SDSUPPORT
 
   #if ENABLED(MENU_ITEM_CASE_LIGHT)
@@ -650,6 +657,20 @@ void kill_screen(const char* lcd_msg) {
 
   #endif //BABYSTEPPING
 
+  #if ENABLED(FILAMENT_CHANGE_FEATURE)
+    void lcd_enqueue_filament_change() {
+      lcd_filament_change_show_message(FILAMENT_CHANGE_MESSAGE_INIT);
+      enqueue_and_echo_commands_P(PSTR("M600"));
+    }
+    #if ENABLED(FILAMENT_LOADUNLOAD_SUPPORT)
+      void lcd_enqueue_filament_load() {
+        enqueue_and_echo_commands_P(PSTR("M701"));
+      }
+      void lcd_enqueue_filament_unload() {
+        enqueue_and_echo_commands_P(PSTR("M702"));
+      }
+    #endif
+  #endif
   /**
    *
    * "Main" menu
@@ -678,7 +699,7 @@ void kill_screen(const char* lcd_msg) {
             MENU_ITEM(function, MSG_PAUSE_PRINT, lcd_sdcard_pause);
           else
             MENU_ITEM(function, MSG_RESUME_PRINT, lcd_sdcard_resume);
-          MENU_ITEM(function, MSG_STOP_PRINT, lcd_sdcard_stop);
+          MENU_ITEM(submenu, MSG_STOP_PRINT, lcd_sdcard_stopconfirm);
         }
         else {
           MENU_ITEM(submenu, MSG_CARD_MENU, lcd_sdcard_menu);
@@ -715,14 +736,21 @@ void kill_screen(const char* lcd_msg) {
     }
     else {
       MENU_ITEM(submenu, MSG_PREHEAT, lcd_preheat_menu);
-      MENU_ITEM(submenu, MSG_PREPARE, lcd_prepare_menu);
+      // MENU_ITEM(submenu, MSG_PREPARE, lcd_prepare_menu); // all options form prepare menu are moved to control menu
+      //
+      // Filament load and unload
+      //
+      #if ENABLED(FILAMENT_LOADUNLOAD_SUPPORT)
+        MENU_ITEM(function, MSG_FILAMENTLOAD, lcd_enqueue_filament_load);
+        MENU_ITEM(function, MSG_FILAMENTUNLOAD, lcd_enqueue_filament_unload);
+      #endif
+      MENU_ITEM(submenu, MSG_CONTROL, lcd_control_menu);
 	    MENU_ITEM(submenu, MSG_CALIBRATE, lcd_calibration_menu);
       #if ENABLED(DELTA_CALIBRATION_MENU)
         MENU_ITEM(submenu, MSG_DELTA_CALIBRATE, lcd_delta_calibrate_menu);
       #endif
     }
-    MENU_ITEM(submenu, MSG_CONTROL, lcd_control_menu);
-
+    
     #if ENABLED(LCD_INFO_MENU)
       MENU_ITEM(submenu, MSG_INFO_MENU, lcd_info_menu);
     #endif
@@ -783,21 +811,6 @@ void kill_screen(const char* lcd_msg) {
   #else
     #if TEMP_SENSOR_BED != 0
       void watch_temp_callback_bed() {}
-    #endif
-  #endif
-
-  #if ENABLED(FILAMENT_CHANGE_FEATURE)
-    void lcd_enqueue_filament_change() {
-      lcd_filament_change_show_message(FILAMENT_CHANGE_MESSAGE_INIT);
-      enqueue_and_echo_commands_P(PSTR("M600"));
-    }
-    #if ENABLED(FILAMENT_LOADUNLOAD_SUPPORT)
-      void lcd_enqueue_filament_load() {
-        enqueue_and_echo_commands_P(PSTR("M701"));
-      }
-      void lcd_enqueue_filament_unload() {
-        enqueue_and_echo_commands_P(PSTR("M702"));
-      }
     #endif
   #endif
 
@@ -971,33 +984,11 @@ void kill_screen(const char* lcd_msg) {
     // ^ Main
     //
     MENU_BACK(MSG_MAIN);
-
-    //
-    // Auto Home
-    //
-    MENU_ITEM(gcode, MSG_AUTO_HOME, PSTR("G28"));
-    #if ENABLED(INDIVIDUAL_AXIS_HOMING_MENU)
-      MENU_ITEM(gcode, MSG_AUTO_HOME_X, PSTR("G28 X"));
-      MENU_ITEM(gcode, MSG_AUTO_HOME_Y, PSTR("G28 Y"));
-      MENU_ITEM(gcode, MSG_AUTO_HOME_Z, PSTR("G28 Z"));
-    #endif
-
-
-
-    //
-    // Move Axis
-    //
-    MENU_ITEM(submenu, MSG_MOVE_AXIS, lcd_move_menu);
-
-    //
-    // Disable Steppers
-    //
-    MENU_ITEM(gcode, MSG_DISABLE_STEPPERS, PSTR("M84"));
-
+    
     //
     // Cooldown
     //
-    MENU_ITEM(function, MSG_COOLDOWN, lcd_cooldown);
+    // MENU_ITEM(function, MSG_COOLDOWN, lcd_cooldown); /* moved to preheat menu */
 
     //
     // BLTouch Self-Test and Reset
@@ -1023,14 +1014,6 @@ void kill_screen(const char* lcd_msg) {
     //
     #if ENABLED(SDSUPPORT) && ENABLED(MENU_ADDAUTOSTART)
       MENU_ITEM(function, MSG_AUTOSTART, lcd_autostart_sd);
-    #endif
-
-    //
-    // Filament load and unload
-    //
-    #if ENABLED(FILAMENT_LOADUNLOAD_SUPPORT)
-      MENU_ITEM(function, MSG_FILAMENTLOAD, lcd_enqueue_filament_load);
-      MENU_ITEM(function, MSG_FILAMENTUNLOAD, lcd_enqueue_filament_unload);
     #endif
 
     END_MENU();
@@ -1419,6 +1402,27 @@ void kill_screen(const char* lcd_msg) {
   void lcd_control_menu() {
     START_MENU();
     MENU_BACK(MSG_MAIN);
+
+    //
+    // Auto Home
+    //
+    MENU_ITEM(gcode, MSG_AUTO_HOME, PSTR("G28"));
+    #if ENABLED(INDIVIDUAL_AXIS_HOMING_MENU)
+      MENU_ITEM(gcode, MSG_AUTO_HOME_X, PSTR("G28 X"));
+      MENU_ITEM(gcode, MSG_AUTO_HOME_Y, PSTR("G28 Y"));
+      MENU_ITEM(gcode, MSG_AUTO_HOME_Z, PSTR("G28 Z"));
+    #endif
+
+    //
+    // Move Axis
+    //
+    MENU_ITEM(submenu, MSG_MOVE_AXIS, lcd_move_menu);
+
+    //
+    // Disable Steppers
+    //
+    MENU_ITEM(gcode, MSG_DISABLE_STEPPERS, PSTR("M84"));
+    
     MENU_ITEM(submenu, MSG_TEMPERATURE, lcd_control_temperature_menu);
     MENU_ITEM(submenu, MSG_MOTION, lcd_control_motion_menu);
     MENU_ITEM(submenu, MSG_VOLUMETRIC, lcd_control_volumetric_menu);
@@ -1438,6 +1442,7 @@ void kill_screen(const char* lcd_msg) {
       MENU_ITEM(function, MSG_STORE_EPROM, Config_StoreSettings);
       MENU_ITEM(function, MSG_LOAD_EPROM, Config_RetrieveSettings);
     #endif
+    
     MENU_ITEM(function, MSG_RESTORE_FAILSAFE, Config_ResetDefault);
     END_MENU();
   }
