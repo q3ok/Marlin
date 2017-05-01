@@ -85,11 +85,6 @@
  * Z_DUAL_ENDSTOPS:
  *  301  M666 Z    z_endstop_adj (float)
  *
- * ULTIPANEL:
- *  305  M145 S0 H lcd_preheat_hotend_temp (int x2)
- *  309  M145 S0 B lcd_preheat_bed_temp (int x2)
- *  313  M145 S0 F lcd_preheat_fan_speed (int x2)
- *
  * PIDTEMP:
  *  317  M301 E0 PIDC  Kp[0], Ki[0], Kd[0], Kc[0] (float x4)
  *  333  M301 E1 PIDC  Kp[1], Ki[1], Kd[1], Kc[1] (float x4)
@@ -273,16 +268,6 @@ void Config_Postprocess() {
       for (uint8_t q = 9; q--;) EEPROM_WRITE(dummy);
     #endif
 
-    #if DISABLED(ULTIPANEL)
-      const int lcd_preheat_hotend_temp[2] = { PREHEAT_1_TEMP_HOTEND, PREHEAT_2_TEMP_HOTEND },
-                lcd_preheat_bed_temp[2] = { PREHEAT_1_TEMP_BED, PREHEAT_2_TEMP_BED },
-                lcd_preheat_fan_speed[2] = { PREHEAT_1_FAN_SPEED, PREHEAT_2_FAN_SPEED };
-    #endif // !ULTIPANEL
-
-    EEPROM_WRITE(lcd_preheat_hotend_temp);
-    EEPROM_WRITE(lcd_preheat_bed_temp);
-    EEPROM_WRITE(lcd_preheat_fan_speed);
-
     for (uint8_t e = 0; e < MAX_EXTRUDERS; e++) {
 
       #if ENABLED(PIDTEMP)
@@ -459,14 +444,6 @@ void Config_Postprocess() {
         for (uint8_t q=9; q--;) EEPROM_READ(dummy);
       #endif
 
-      #if DISABLED(ULTIPANEL)
-        int lcd_preheat_hotend_temp[2], lcd_preheat_bed_temp[2], lcd_preheat_fan_speed[2];
-      #endif
-
-      EEPROM_READ(lcd_preheat_hotend_temp);
-      EEPROM_READ(lcd_preheat_bed_temp);
-      EEPROM_READ(lcd_preheat_fan_speed);
-
       #if ENABLED(PIDTEMP)
         for (uint8_t e = 0; e < MAX_EXTRUDERS; e++) {
           EEPROM_READ(dummy); // Kp
@@ -627,15 +604,6 @@ void Config_ResetDefault() {
     delta_diagonal_rod_trim_tower_3 = DELTA_DIAGONAL_ROD_TRIM_TOWER_3;
   #elif ENABLED(Z_DUAL_ENDSTOPS)
     z_endstop_adj = 0;
-  #endif
-
-  #if ENABLED(ULTIPANEL)
-    lcd_preheat_hotend_temp[0] = PREHEAT_1_TEMP_HOTEND;
-    lcd_preheat_hotend_temp[1] = PREHEAT_2_TEMP_HOTEND;
-    lcd_preheat_bed_temp[0] = PREHEAT_1_TEMP_BED;
-    lcd_preheat_bed_temp[1] = PREHEAT_2_TEMP_BED;
-    lcd_preheat_fan_speed[0] = PREHEAT_1_FAN_SPEED;
-    lcd_preheat_fan_speed[1] = PREHEAT_2_FAN_SPEED;
   #endif
 
   #if HAS_LCD_CONTRAST
@@ -872,21 +840,6 @@ void Config_ResetDefault() {
       SERIAL_ECHOPAIR("  M666 Z", z_endstop_adj);
       SERIAL_EOL;
     #endif // DELTA
-
-    #if ENABLED(ULTIPANEL)
-      CONFIG_ECHO_START;
-      if (!forReplay) {
-        SERIAL_ECHOLNPGM("Material heatup parameters:");
-        CONFIG_ECHO_START;
-      }
-      for (uint8_t i = 0; i < COUNT(lcd_preheat_hotend_temp); i++) {
-        SERIAL_ECHOPAIR("  M145 S", (int)i);
-        SERIAL_ECHOPAIR(" H", lcd_preheat_hotend_temp[i]);
-        SERIAL_ECHOPAIR(" B", lcd_preheat_bed_temp[i]);
-        SERIAL_ECHOPAIR(" F", lcd_preheat_fan_speed[i]);
-        SERIAL_EOL;
-      }
-    #endif // ULTIPANEL
 
     #if HAS_PID_HEATING
 

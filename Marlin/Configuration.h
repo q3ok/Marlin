@@ -751,12 +751,6 @@
 
   //#define MESH_G28_REST_ORIGIN // After homing all axes ('G28' or 'G28 XYZ') rest at origin [0,0,0]
 
-  //#define MANUAL_BED_LEVELING  // Add display menu option for bed leveling.
-
-  #if ENABLED(MANUAL_BED_LEVELING)
-    #define MBL_Z_STEP 0.025  // Step size while manually probing Z axis.
-  #endif  // MANUAL_BED_LEVELING
-
   // Gradually reduce leveling correction until a set height is reached,
   // at which point movement will be level to the machine's XY plane.
   // The height can be set with M420 Z<height>
@@ -936,13 +930,23 @@
 // @section temperature
 
 // Preheat Constants
-#define PREHEAT_1_TEMP_HOTEND 180
-#define PREHEAT_1_TEMP_BED     70
-#define PREHEAT_1_FAN_SPEED     0 // Value from 0 to 255
+#define ABS_PREHEAT_HOTEND_TEMP 245
+#define ABS_PREHEAT_HPB_TEMP 100
 
-#define PREHEAT_2_TEMP_HOTEND 240
-#define PREHEAT_2_TEMP_BED    110
-#define PREHEAT_2_FAN_SPEED     0 // Value from 0 to 255
+#define PLA_PREHEAT_HOTEND_TEMP 215
+#define PLA_PREHEAT_HPB_TEMP 55
+
+#define PET_PREHEAT_HOTEND_TEMP 230
+#define PET_PREHEAT_HPB_TEMP 70
+
+#define HIPS_PREHEAT_HOTEND_TEMP 250
+#define HIPS_PREHEAT_HPB_TEMP 50
+
+#define PP_PREHEAT_HOTEND_TEMP 250
+#define PP_PREHEAT_HPB_TEMP 50
+
+#define FLEX_PREHEAT_HOTEND_TEMP 250
+#define FLEX_PREHEAT_HPB_TEMP 50
 
 //
 // Nozzle Park -- EXPERIMENTAL

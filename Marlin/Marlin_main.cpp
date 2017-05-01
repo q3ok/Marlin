@@ -129,7 +129,6 @@
  * M128 - EtoP Open. (Requires BARICUDA)
  * M129 - EtoP Closed. (Requires BARICUDA)
  * M140 - Set bed target temp. S<temp>
- * M145 - Set heatup values for materials on the LCD. H<hotend> B<bed> F<fan speed> for S<material> (0=PLA, 1=ABS)
  * M149 - Set temperature units. (Requires TEMPERATURE_UNITS_SUPPORT)
  * M150 - Set Status LED Color as R<red> U<green> B<blue>. Values 0-255. (Requires BLINKM or RGB_LED)
  * M155 - Auto-report temperatures with interval of S<seconds>. (Requires AUTO_REPORT_TEMPERATURES)
@@ -5753,42 +5752,6 @@ inline void gcode_M140() {
   if (code_seen('S')) thermalManager.setTargetBed(code_value_temp_abs());
 }
 
-#if ENABLED(ULTIPANEL)
-
-  /**
-   * M145: Set the heatup state for a material in the LCD menu
-   *   S<material> (0=PLA, 1=ABS)
-   *   H<hotend temp>
-   *   B<bed temp>
-   *   F<fan speed>
-   */
-  inline void gcode_M145() {
-    uint8_t material = code_seen('S') ? (uint8_t)code_value_int() : 0;
-    if (material >= COUNT(lcd_preheat_hotend_temp)) {
-      SERIAL_ERROR_START;
-      SERIAL_ERRORLNPGM(MSG_ERR_MATERIAL_INDEX);
-    }
-    else {
-      int v;
-      if (code_seen('H')) {
-        v = code_value_int();
-        lcd_preheat_hotend_temp[material] = constrain(v, EXTRUDE_MINTEMP, HEATER_0_MAXTEMP - 15);
-      }
-      if (code_seen('F')) {
-        v = code_value_int();
-        lcd_preheat_fan_speed[material] = constrain(v, 0, 255);
-      }
-      #if TEMP_SENSOR_BED != 0
-        if (code_seen('B')) {
-          v = code_value_int();
-          lcd_preheat_bed_temp[material] = constrain(v, BED_MINTEMP, BED_MAXTEMP - 15);
-        }
-      #endif
-    }
-  }
-
-#endif // ULTIPANEL
-
 #if ENABLED(TEMPERATURE_UNITS_SUPPORT)
   /**
    * M149: Set temperature units
@@ -8474,14 +8437,6 @@ void process_next_command() {
         case 122: // M122: Diagnose, used to debug TMC2130
           gcode_M122();
           break;
-      #endif
-
-      #if ENABLED(ULTIPANEL)
-
-        case 145: // M145: Set material heatup parameters
-          gcode_M145();
-          break;
-
       #endif
 
       #if ENABLED(TEMPERATURE_UNITS_SUPPORT)

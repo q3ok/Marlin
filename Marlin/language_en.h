@@ -87,6 +87,9 @@
 #ifndef MSG_SET_ORIGIN
   #define MSG_SET_ORIGIN                      "Set origin"
 #endif
+#ifndef MSG_PREHEAT
+  #define MSG_PREHEAT                         "Preheat"
+#endif
 #ifndef MSG_PREHEAT_1
   #define MSG_PREHEAT_1                       "Preheat PLA"
 #endif
