@@ -7372,11 +7372,11 @@ inline void gcode_M503() {
     lcd_filament_change_show_message(FILAMENT_CHANGE_MESSAGE_INIT);
     stepper.synchronize();
 
-    float lastpos[NUM_AXIS];
+    //float lastpos[NUM_AXIS];
 
     // Save current position of all axes
-    LOOP_XYZE(i)
-      lastpos[i] = destination[i] = current_position[i];
+    //LOOP_XYZE(i)
+    //  lastpos[i] = destination[i] = current_position[i];
 
     // Define runplan for move axes
     #if IS_KINEMATIC

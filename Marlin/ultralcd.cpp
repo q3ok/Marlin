@@ -688,10 +688,17 @@ void kill_screen(const char* lcd_msg) {
 	    MENU_ITEM(submenu, MSG_BABYSTEP_Z, lcd_babystep_z);
 	  }
 	#endif
-	
-	//
-	// SD Card support on top (as it should mainly print)
-	//
+  
+  if (planner.movesplanned() || IS_SD_PRINTING) {
+      MENU_ITEM(submenu, MSG_TUNE, lcd_tune_menu);
+    } else {
+      MENU_ITEM(submenu, MSG_PREHEAT, lcd_preheat_menu);
+      // MENU_ITEM(submenu, MSG_PREPARE, lcd_prepare_menu); // all options form prepare menu are moved to control menu
+    }
+
+    //
+    // SD Card support on top (as it should mainly print)
+    //
     #if ENABLED(SDSUPPORT)
       if (card.cardOK) {
         if (card.isFileOpen()) {
@@ -715,6 +722,18 @@ void kill_screen(const char* lcd_msg) {
         #endif
       }
     #endif //SDSUPPORT
+
+    if (!planner.movesplanned() || !IS_SD_PRINTING) {
+      //
+      // Filament load and unload
+      //
+      #if ENABLED(FILAMENT_LOADUNLOAD_SUPPORT)
+        MENU_ITEM(function, MSG_FILAMENTLOAD, lcd_enqueue_filament_load);
+        MENU_ITEM(function, MSG_FILAMENTUNLOAD, lcd_enqueue_filament_unload);
+      #endif
+      MENU_ITEM(submenu, MSG_CONTROL, lcd_control_menu);
+	    MENU_ITEM(submenu, MSG_CALIBRATE, lcd_calibration_menu);
+    }
 	
     //
     // Switch case light on/off
@@ -731,26 +750,6 @@ void kill_screen(const char* lcd_msg) {
         MENU_ITEM(gcode, MSG_BLTOUCH_RESET, PSTR("M280 P" STRINGIFY(Z_ENDSTOP_SERVO_NR) " S" STRINGIFY(BLTOUCH_RESET)));
     #endif
 
-    if (planner.movesplanned() || IS_SD_PRINTING) {
-      MENU_ITEM(submenu, MSG_TUNE, lcd_tune_menu);
-    }
-    else {
-      MENU_ITEM(submenu, MSG_PREHEAT, lcd_preheat_menu);
-      // MENU_ITEM(submenu, MSG_PREPARE, lcd_prepare_menu); // all options form prepare menu are moved to control menu
-      //
-      // Filament load and unload
-      //
-      #if ENABLED(FILAMENT_LOADUNLOAD_SUPPORT)
-        MENU_ITEM(function, MSG_FILAMENTLOAD, lcd_enqueue_filament_load);
-        MENU_ITEM(function, MSG_FILAMENTUNLOAD, lcd_enqueue_filament_unload);
-      #endif
-      MENU_ITEM(submenu, MSG_CONTROL, lcd_control_menu);
-	    MENU_ITEM(submenu, MSG_CALIBRATE, lcd_calibration_menu);
-      #if ENABLED(DELTA_CALIBRATION_MENU)
-        MENU_ITEM(submenu, MSG_DELTA_CALIBRATE, lcd_delta_calibrate_menu);
-      #endif
-    }
-    
     #if ENABLED(LCD_INFO_MENU)
       MENU_ITEM(submenu, MSG_INFO_MENU, lcd_info_menu);
     #endif
@@ -1136,12 +1135,141 @@ void kill_screen(const char* lcd_msg) {
   
   
   #endif
+
+  //
+  // Extruder PID calibration
+  //
+  #if ENABLED(PID_AUTOTUNE_MENU)
+
+    #if ENABLED(PIDTEMP)
+      int autotune_temp[HOTENDS] = ARRAY_BY_HOTENDS1(150);
+    #endif
+
+    #if ENABLED(PIDTEMPBED)
+      int autotune_temp_bed = 70;
+    #endif
+
+    void _lcd_autotune(int e) {
+      char cmd[30];
+      sprintf_P(cmd, PSTR("M303 U1 E%i S%i"), e,
+        #if HAS_PID_FOR_BOTH
+          e < 0 ? autotune_temp_bed : autotune_temp[e]
+        #elif ENABLED(PIDTEMPBED)
+          autotune_temp_bed
+        #else
+          autotune_temp[e]
+        #endif
+      );
+      enqueue_and_echo_command(cmd);
+    }
+
+  #endif //PID_AUTOTUNE_MENU
+  
+  #if ENABLED(PIDTEMP)
+
+    // Helpers for editing PID Ki & Kd values
+    // grab the PID value out of the temp variable; scale it; then update the PID driver
+    void copy_and_scalePID_i(int e) {
+      #if DISABLED(PID_PARAMS_PER_HOTEND) || HOTENDS == 1
+        UNUSED(e);
+      #endif
+      PID_PARAM(Ki, e) = scalePID_i(raw_Ki);
+      thermalManager.updatePID();
+    }
+    void copy_and_scalePID_d(int e) {
+      #if DISABLED(PID_PARAMS_PER_HOTEND) || HOTENDS == 1
+        UNUSED(e);
+      #endif
+      PID_PARAM(Kd, e) = scalePID_d(raw_Kd);
+      thermalManager.updatePID();
+    }
+    #define _PIDTEMP_BASE_FUNCTIONS(eindex) \
+      void copy_and_scalePID_i_E ## eindex() { copy_and_scalePID_i(eindex); } \
+      void copy_and_scalePID_d_E ## eindex() { copy_and_scalePID_d(eindex); }
+
+    #if ENABLED(PID_AUTOTUNE_MENU)
+      #define _PIDTEMP_FUNCTIONS(eindex) \
+        _PIDTEMP_BASE_FUNCTIONS(eindex); \
+        void lcd_autotune_callback_E ## eindex() { _lcd_autotune(eindex); }
+    #else
+      #define _PIDTEMP_FUNCTIONS(eindex) _PIDTEMP_BASE_FUNCTIONS(eindex)
+    #endif
+
+    _PIDTEMP_FUNCTIONS(0)
+    #if ENABLED(PID_PARAMS_PER_HOTEND)
+      #if HOTENDS > 1
+        _PIDTEMP_FUNCTIONS(1)
+        #if HOTENDS > 2
+          _PIDTEMP_FUNCTIONS(2)
+          #if HOTENDS > 3
+            _PIDTEMP_FUNCTIONS(3)
+          #endif //HOTENDS > 3
+        #endif //HOTENDS > 2
+      #endif //HOTENDS > 1
+    #endif //PID_PARAMS_PER_HOTEND
+
+  #endif //PIDTEMP
+
+  void lcd_calibratepid_menu() {
+    START_MENU();
+    MENU_BACK(MSG_CALIBRATE);
+
+    // PID Autotune
+    //
+    // PID-P, PID-I, PID-D, PID-C, PID Autotune
+    // PID-P E1, PID-I E1, PID-D E1, PID-C E1, PID Autotune E1
+    // PID-P E2, PID-I E2, PID-D E2, PID-C E2, PID Autotune E2
+    // PID-P E3, PID-I E3, PID-D E3, PID-C E3, PID Autotune E3
+    // PID-P E4, PID-I E4, PID-D E4, PID-C E4, PID Autotune E4
+    //
+    #if ENABLED(PIDTEMP)
+
+      #define _PID_BASE_MENU_ITEMS(ELABEL, eindex) \
+        raw_Ki = unscalePID_i(PID_PARAM(Ki, eindex)); \
+        raw_Kd = unscalePID_d(PID_PARAM(Kd, eindex)); \
+        MENU_ITEM_EDIT(float52, MSG_PID_P ELABEL, &PID_PARAM(Kp, eindex), 1, 9990); \
+        MENU_ITEM_EDIT_CALLBACK(float52, MSG_PID_I ELABEL, &raw_Ki, 0.01, 9990, copy_and_scalePID_i_E ## eindex); \
+        MENU_ITEM_EDIT_CALLBACK(float52, MSG_PID_D ELABEL, &raw_Kd, 1, 9990, copy_and_scalePID_d_E ## eindex)
+
+      #if ENABLED(PID_EXTRUSION_SCALING)
+        #define _PID_MENU_ITEMS(ELABEL, eindex) \
+          _PID_BASE_MENU_ITEMS(ELABEL, eindex); \
+          MENU_ITEM_EDIT(float3, MSG_PID_C ELABEL, &PID_PARAM(Kc, eindex), 1, 9990)
+      #else
+        #define _PID_MENU_ITEMS(ELABEL, eindex) _PID_BASE_MENU_ITEMS(ELABEL, eindex)
+      #endif
+
+      #if ENABLED(PID_AUTOTUNE_MENU)
+        #define PID_MENU_ITEMS(ELABEL, eindex) \
+          _PID_MENU_ITEMS(ELABEL, eindex); \
+          MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(int3, MSG_PID_AUTOTUNE ELABEL, &autotune_temp[eindex], 150, heater_maxtemp[eindex] - 15, lcd_autotune_callback_E ## eindex)
+      #else
+        #define PID_MENU_ITEMS(ELABEL, eindex) _PID_MENU_ITEMS(ELABEL, eindex)
+      #endif
+
+      #if ENABLED(PID_PARAMS_PER_HOTEND) && HOTENDS > 1
+        PID_MENU_ITEMS(MSG_E1, 0);
+        PID_MENU_ITEMS(MSG_E2, 1);
+        #if HOTENDS > 2
+          PID_MENU_ITEMS(MSG_E3, 2);
+          #if HOTENDS > 3
+            PID_MENU_ITEMS(MSG_E4, 3);
+          #endif //HOTENDS > 3
+        #endif //HOTENDS > 2
+      #else //!PID_PARAMS_PER_HOTEND || HOTENDS == 1
+        PID_MENU_ITEMS("", 0);
+      #endif //!PID_PARAMS_PER_HOTEND || HOTENDS == 1
+
+    #endif //PIDTEMP
+    END_MENU();
+  }
+    
   
  /**
   * "Calibration" submenu
   */  
   void lcd_calibration_menu() {
-	START_MENU();
+	  START_MENU();
 
     //
     // ^ Main
@@ -1151,7 +1279,7 @@ void kill_screen(const char* lcd_msg) {
     //
     // Set Home Offsets
     //
-    MENU_ITEM(function, MSG_SET_HOME_OFFSETS, lcd_set_home_offsets);
+    //MENU_ITEM(function, MSG_SET_HOME_OFFSETS, lcd_set_home_offsets);
     //MENU_ITEM(gcode, MSG_SET_ORIGIN, PSTR("G92 X0 Y0 Z0"));
 
     //
@@ -1160,42 +1288,20 @@ void kill_screen(const char* lcd_msg) {
     #if HAS_ABL
       MENU_ITEM(gcode, MSG_LEVEL_BED,
         axis_homed[X_AXIS] && axis_homed[Y_AXIS] ? PSTR("G29") : PSTR("G28\nG29")
-      );
-	  #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
-	    MENU_ITEM(submenu, MSG_DISPLAY_LEVELING_GRID, lcd_display_leveling_grid);
+       );
+	    /* //DISABLED UNTIL IT WILL BE WORKING FULLY
+	    #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+	      MENU_ITEM(submenu, MSG_DISPLAY_LEVELING_GRID, lcd_display_leveling_grid);
       #endif
+      */
+    #endif
+
+    #if ENABLED(PIDTEMP)
+      MENU_ITEM(submenu, MSG_PID_AUTOTUNE, lcd_calibratepid_menu);
     #endif
 	
-	END_MENU();
+    END_MENU();
   }
-
-  #if ENABLED(DELTA_CALIBRATION_MENU)
-
-    void _goto_tower_pos(const float &a) {
-      do_blocking_move_to(
-        a < 0 ? X_HOME_POS : sin(a) * -(DELTA_PRINTABLE_RADIUS),
-        a < 0 ? Y_HOME_POS : cos(a) *  (DELTA_PRINTABLE_RADIUS),
-        4
-      );
-    }
-
-    void _goto_tower_x() { _goto_tower_pos(RADIANS(120)); }
-    void _goto_tower_y() { _goto_tower_pos(RADIANS(240)); }
-    void _goto_tower_z() { _goto_tower_pos(0); }
-    void _goto_center()  { _goto_tower_pos(-1); }
-
-    void lcd_delta_calibrate_menu() {
-      START_MENU();
-      MENU_BACK(MSG_MAIN);
-      MENU_ITEM(gcode, MSG_AUTO_HOME, PSTR("G28"));
-      MENU_ITEM(function, MSG_DELTA_CALIBRATE_X, _goto_tower_x);
-      MENU_ITEM(function, MSG_DELTA_CALIBRATE_Y, _goto_tower_y);
-      MENU_ITEM(function, MSG_DELTA_CALIBRATE_Z, _goto_tower_z);
-      MENU_ITEM(function, MSG_DELTA_CALIBRATE_CENTER, _goto_center);
-      END_MENU();
-    }
-
-  #endif // DELTA_CALIBRATION_MENU
 
   float move_menu_scale;
 
@@ -1222,7 +1328,7 @@ void kill_screen(const char* lcd_msg) {
     #if E_MANUAL > 1
       if (axis == E_AXIS) manual_move_e_index = eindex >= 0 ? eindex : active_extruder;
     #endif
-    manual_move_start_time = millis() + (move_menu_scale < 0.99 ? 0UL : 250UL); // delay for bigger moves
+    manual_move_start_time = millis(); // instant move // + (move_menu_scale < 0.99 ? 0UL : 250UL); // delay for bigger moves
     manual_move_axis = (int8_t)axis;
   }
 
@@ -1243,15 +1349,6 @@ void kill_screen(const char* lcd_msg) {
 
       // Get the new position
       current_position[axis] += float((int32_t)encoderPosition) * move_menu_scale;
-
-      // Delta limits XY based on the current offset from center
-      // This assumes the center is 0,0
-      #if ENABLED(DELTA)
-        if (axis != Z_AXIS) {
-          max = sqrt(sq(DELTA_PRINTABLE_RADIUS) - sq(current_position[Y_AXIS - axis]));
-          min = -max;
-        }
-      #endif
 
       // Limit only when trying to move towards the limit
       if ((int32_t)encoderPosition < 0) NOLESS(current_position[axis], min);
@@ -1335,7 +1432,7 @@ void kill_screen(const char* lcd_msg) {
     if (_MOVE_XYZ_ALLOWED) {
       MENU_ITEM(submenu, MSG_MOVE_X, lcd_move_x);
       MENU_ITEM(submenu, MSG_MOVE_Y, lcd_move_y);
-	  MENU_ITEM(submenu, MSG_MOVE_Z, lcd_move_z); // Allowed 10mm moves
+	    MENU_ITEM(submenu, MSG_MOVE_Z, lcd_move_z);
     }
 
     if (move_menu_scale < 10.0) {
@@ -1416,7 +1513,7 @@ void kill_screen(const char* lcd_msg) {
     //
     // Move Axis
     //
-    MENU_ITEM(submenu, MSG_MOVE_AXIS, lcd_move_menu);
+    MENU_ITEM(submenu, MSG_MOVE_AXIS, lcd_move_menu_1mm); // directly move to 1mm moves (as its default in MK2)
 
     //
     // Disable Steppers
@@ -1425,7 +1522,7 @@ void kill_screen(const char* lcd_msg) {
     
     MENU_ITEM(submenu, MSG_TEMPERATURE, lcd_control_temperature_menu);
     MENU_ITEM(submenu, MSG_MOTION, lcd_control_motion_menu);
-    MENU_ITEM(submenu, MSG_VOLUMETRIC, lcd_control_volumetric_menu);
+    // MENU_ITEM(submenu, MSG_VOLUMETRIC, lcd_control_volumetric_menu); // VOLUMETRIC OFF
 
     #if HAS_LCD_CONTRAST
       //MENU_ITEM_EDIT(int3, MSG_CONTRAST, &lcd_contrast, 0, 63);
@@ -1447,82 +1544,6 @@ void kill_screen(const char* lcd_msg) {
     END_MENU();
   }
 
-  /**
-   *
-   * "Temperature" submenu
-   *
-   */
-
-  #if ENABLED(PID_AUTOTUNE_MENU)
-
-    #if ENABLED(PIDTEMP)
-      int autotune_temp[HOTENDS] = ARRAY_BY_HOTENDS1(150);
-    #endif
-
-    #if ENABLED(PIDTEMPBED)
-      int autotune_temp_bed = 70;
-    #endif
-
-    void _lcd_autotune(int e) {
-      char cmd[30];
-      sprintf_P(cmd, PSTR("M303 U1 E%i S%i"), e,
-        #if HAS_PID_FOR_BOTH
-          e < 0 ? autotune_temp_bed : autotune_temp[e]
-        #elif ENABLED(PIDTEMPBED)
-          autotune_temp_bed
-        #else
-          autotune_temp[e]
-        #endif
-      );
-      enqueue_and_echo_command(cmd);
-    }
-
-  #endif //PID_AUTOTUNE_MENU
-
-  #if ENABLED(PIDTEMP)
-
-    // Helpers for editing PID Ki & Kd values
-    // grab the PID value out of the temp variable; scale it; then update the PID driver
-    void copy_and_scalePID_i(int e) {
-      #if DISABLED(PID_PARAMS_PER_HOTEND) || HOTENDS == 1
-        UNUSED(e);
-      #endif
-      PID_PARAM(Ki, e) = scalePID_i(raw_Ki);
-      thermalManager.updatePID();
-    }
-    void copy_and_scalePID_d(int e) {
-      #if DISABLED(PID_PARAMS_PER_HOTEND) || HOTENDS == 1
-        UNUSED(e);
-      #endif
-      PID_PARAM(Kd, e) = scalePID_d(raw_Kd);
-      thermalManager.updatePID();
-    }
-    #define _PIDTEMP_BASE_FUNCTIONS(eindex) \
-      void copy_and_scalePID_i_E ## eindex() { copy_and_scalePID_i(eindex); } \
-      void copy_and_scalePID_d_E ## eindex() { copy_and_scalePID_d(eindex); }
-
-    #if ENABLED(PID_AUTOTUNE_MENU)
-      #define _PIDTEMP_FUNCTIONS(eindex) \
-        _PIDTEMP_BASE_FUNCTIONS(eindex); \
-        void lcd_autotune_callback_E ## eindex() { _lcd_autotune(eindex); }
-    #else
-      #define _PIDTEMP_FUNCTIONS(eindex) _PIDTEMP_BASE_FUNCTIONS(eindex)
-    #endif
-
-    _PIDTEMP_FUNCTIONS(0)
-    #if ENABLED(PID_PARAMS_PER_HOTEND)
-      #if HOTENDS > 1
-        _PIDTEMP_FUNCTIONS(1)
-        #if HOTENDS > 2
-          _PIDTEMP_FUNCTIONS(2)
-          #if HOTENDS > 3
-            _PIDTEMP_FUNCTIONS(3)
-          #endif //HOTENDS > 3
-        #endif //HOTENDS > 2
-      #endif //HOTENDS > 1
-    #endif //PID_PARAMS_PER_HOTEND
-
-  #endif //PIDTEMP
 
   /**
    *
@@ -1600,100 +1621,10 @@ void kill_screen(const char* lcd_msg) {
       MENU_ITEM_EDIT(float3, MSG_MAX, &planner.autotemp_max, 0, HEATER_0_MAXTEMP - 15);
       MENU_ITEM_EDIT(float32, MSG_FACTOR, &planner.autotemp_factor, 0.0, 1.0);
     #endif
-
-    //
-    // PID-P, PID-I, PID-D, PID-C, PID Autotune
-    // PID-P E1, PID-I E1, PID-D E1, PID-C E1, PID Autotune E1
-    // PID-P E2, PID-I E2, PID-D E2, PID-C E2, PID Autotune E2
-    // PID-P E3, PID-I E3, PID-D E3, PID-C E3, PID Autotune E3
-    // PID-P E4, PID-I E4, PID-D E4, PID-C E4, PID Autotune E4
-    //
-    #if ENABLED(PIDTEMP)
-
-      #define _PID_BASE_MENU_ITEMS(ELABEL, eindex) \
-        raw_Ki = unscalePID_i(PID_PARAM(Ki, eindex)); \
-        raw_Kd = unscalePID_d(PID_PARAM(Kd, eindex)); \
-        MENU_ITEM_EDIT(float52, MSG_PID_P ELABEL, &PID_PARAM(Kp, eindex), 1, 9990); \
-        MENU_ITEM_EDIT_CALLBACK(float52, MSG_PID_I ELABEL, &raw_Ki, 0.01, 9990, copy_and_scalePID_i_E ## eindex); \
-        MENU_ITEM_EDIT_CALLBACK(float52, MSG_PID_D ELABEL, &raw_Kd, 1, 9990, copy_and_scalePID_d_E ## eindex)
-
-      #if ENABLED(PID_EXTRUSION_SCALING)
-        #define _PID_MENU_ITEMS(ELABEL, eindex) \
-          _PID_BASE_MENU_ITEMS(ELABEL, eindex); \
-          MENU_ITEM_EDIT(float3, MSG_PID_C ELABEL, &PID_PARAM(Kc, eindex), 1, 9990)
-      #else
-        #define _PID_MENU_ITEMS(ELABEL, eindex) _PID_BASE_MENU_ITEMS(ELABEL, eindex)
-      #endif
-
-      #if ENABLED(PID_AUTOTUNE_MENU)
-        #define PID_MENU_ITEMS(ELABEL, eindex) \
-          _PID_MENU_ITEMS(ELABEL, eindex); \
-          MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(int3, MSG_PID_AUTOTUNE ELABEL, &autotune_temp[eindex], 150, heater_maxtemp[eindex] - 15, lcd_autotune_callback_E ## eindex)
-      #else
-        #define PID_MENU_ITEMS(ELABEL, eindex) _PID_MENU_ITEMS(ELABEL, eindex)
-      #endif
-
-      #if ENABLED(PID_PARAMS_PER_HOTEND) && HOTENDS > 1
-        PID_MENU_ITEMS(MSG_E1, 0);
-        PID_MENU_ITEMS(MSG_E2, 1);
-        #if HOTENDS > 2
-          PID_MENU_ITEMS(MSG_E3, 2);
-          #if HOTENDS > 3
-            PID_MENU_ITEMS(MSG_E4, 3);
-          #endif //HOTENDS > 3
-        #endif //HOTENDS > 2
-      #else //!PID_PARAMS_PER_HOTEND || HOTENDS == 1
-        PID_MENU_ITEMS("", 0);
-      #endif //!PID_PARAMS_PER_HOTEND || HOTENDS == 1
-
-    #endif //PIDTEMP
     
     END_MENU();
   }
-  /*
-  void _lcd_control_temperature_preheat_settings_menu(uint8_t material) {
-    #if HOTENDS > 3
-      #define MINTEMP_ALL MIN4(HEATER_0_MINTEMP, HEATER_1_MINTEMP, HEATER_2_MINTEMP, HEATER_3_MINTEMP)
-      #define MAXTEMP_ALL MAX4(HEATER_0_MAXTEMP, HEATER_1_MAXTEMP, HEATER_2_MAXTEMP, HEATER_3_MAXTEMP)
-    #elif HOTENDS > 2
-      #define MINTEMP_ALL MIN3(HEATER_0_MINTEMP, HEATER_1_MINTEMP, HEATER_2_MINTEMP)
-      #define MAXTEMP_ALL MAX3(HEATER_0_MAXTEMP, HEATER_1_MAXTEMP, HEATER_2_MAXTEMP)
-    #elif HOTENDS > 1
-      #define MINTEMP_ALL min(HEATER_0_MINTEMP, HEATER_1_MINTEMP)
-      #define MAXTEMP_ALL max(HEATER_0_MAXTEMP, HEATER_1_MAXTEMP)
-    #else
-      #define MINTEMP_ALL HEATER_0_MINTEMP
-      #define MAXTEMP_ALL HEATER_0_MAXTEMP
-    #endif
-    START_MENU();
-    MENU_BACK(MSG_TEMPERATURE);
-    MENU_ITEM_EDIT(int3, MSG_FAN_SPEED, &lcd_preheat_fan_speed[material], 0, 255);
-    #if TEMP_SENSOR_0 != 0
-      MENU_ITEM_EDIT(int3, MSG_NOZZLE, &lcd_preheat_hotend_temp[material], MINTEMP_ALL, MAXTEMP_ALL - 15);
-    #endif
-    #if TEMP_SENSOR_BED != 0
-      MENU_ITEM_EDIT(int3, MSG_BED, &lcd_preheat_bed_temp[material], BED_MINTEMP, BED_MAXTEMP - 15);
-    #endif
-    #if ENABLED(EEPROM_SETTINGS)
-      MENU_ITEM(function, MSG_STORE_EPROM, Config_StoreSettings);
-    #endif
-    END_MENU();
-  }*/
-
-  /**
-   *
-   * "Temperature" > "Preheat Material 1 conf" submenu
-   *
-   */
-  //void lcd_control_temperature_preheat_material1_settings_menu() { _lcd_control_temperature_preheat_settings_menu(0); }
-
-  /**
-   *
-   * "Temperature" > "Preheat Material 2 conf" submenu
-   *
-   */
-  //void lcd_control_temperature_preheat_material2_settings_menu() { _lcd_control_temperature_preheat_settings_menu(1); }
-
+  
   void _reset_acceleration_rates() { planner.reset_acceleration_rates(); }
   #if ENABLED(DISTINCT_E_FACTORS)
     void _reset_e_acceleration_rate(const uint8_t e) { if (e == active_extruder) _reset_acceleration_rates(); }
