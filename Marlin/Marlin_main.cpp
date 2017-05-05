@@ -7294,10 +7294,15 @@ inline void gcode_M503() {
       return;
     }
 
-    disable_e0();
-    disable_e1();
-    disable_e2();
-    disable_e3();
+    // Define runplan for move axes
+    #if IS_KINEMATIC
+      #define RUNPLAN(RATE_MM_S) planner.buffer_line_kinematic(destination, RATE_MM_S, active_extruder);
+    #else
+      #define RUNPLAN(RATE_MM_S) line_to_destination(RATE_MM_S);
+    #endif
+
+    // disable steppers to allow free insert of filament
+    stepper.finish_and_disable();
     delay(100);
 
     #if HAS_BUZZER
@@ -7324,6 +7329,9 @@ inline void gcode_M503() {
     // Show load message
     lcd_filament_change_show_message(FILAMENT_CHANGE_MESSAGE_LOAD);
 
+    // get current stepper positions to avoid any additional moves
+    set_destination_to_current();
+
     // Load filament
     if (code_seen('L')) destination[E_AXIS] -= code_value_axis_units(E_AXIS);
     #if defined(FILAMENT_CHANGE_LOAD_LENGTH) && FILAMENT_CHANGE_LOAD_LENGTH > 0
@@ -7349,6 +7357,9 @@ inline void gcode_M503() {
     #endif
     stepper.synchronize();
 
+    // allow again the user to freely move all of axis
+    stepper.finish_and_disable();
+
     #if ENABLED(FILAMENT_RUNOUT_SENSOR)
       filament_ran_out = false;
     #endif
@@ -7370,13 +7381,10 @@ inline void gcode_M503() {
 
     // Show initial message and wait for synchronize steppers
     lcd_filament_change_show_message(FILAMENT_CHANGE_MESSAGE_INIT);
+
+    // get current stepper positions to avoid any additional moves and then synchronize to be sure
+    set_destination_to_current();
     stepper.synchronize();
-
-    //float lastpos[NUM_AXIS];
-
-    // Save current position of all axes
-    //LOOP_XYZE(i)
-    //  lastpos[i] = destination[i] = current_position[i];
 
     // Define runplan for move axes
     #if IS_KINEMATIC
@@ -7385,7 +7393,7 @@ inline void gcode_M503() {
       #define RUNPLAN(RATE_MM_S) line_to_destination(RATE_MM_S);
     #endif
 
-    KEEPALIVE_STATE(IN_HANDLER);
+    //KEEPALIVE_STATE(IN_HANDLER);
 
     // Initial retract before move to filament change position
     if (code_seen('E')) destination[E_AXIS] += code_value_axis_units(E_AXIS);
@@ -7394,8 +7402,8 @@ inline void gcode_M503() {
     #endif
 
     RUNPLAN(FILAMENT_CHANGE_RETRACT_FEEDRATE);
-
     stepper.synchronize();
+    
     lcd_filament_change_show_message(FILAMENT_CHANGE_MESSAGE_UNLOAD);
 
     // Unload filament
@@ -7406,12 +7414,9 @@ inline void gcode_M503() {
 
     RUNPLAN(FILAMENT_CHANGE_UNLOAD_FEEDRATE);
 
-    // Synchronize steppers and then disable extruders steppers for manual filament changing
+    // Synchronize steppers and then disable steppers to allow free moves
     stepper.synchronize();
-    disable_e0();
-    disable_e1();
-    disable_e2();
-    disable_e3();
+    stepper.finish_and_disable();
     delay(100);
 
     // Show status screen
@@ -8211,6 +8216,367 @@ void process_next_command() {
       case 92: // G92
         gcode_G92();
         break;
+
+      case 666: // G666 - autocalibrate the printer (detect bed size, available height, check if the printer is perependicular */
+      {
+        #ifndef Z_PROBE_TRIGGERED
+          #define Z_PROBE_TRIGGERED (READ(Z_MIN_PIN) ^ Z_MIN_ENDSTOP_INVERTING == 1)
+        #endif
+        #ifndef X_PROBE_TRIGGERED
+          #define X_PROBE_TRIGGERED (READ(X_MIN_PIN) ^ X_MIN_ENDSTOP_INVERTING == 1)
+        #endif
+        #ifndef Y_PROBE_TRIGGERED
+          #define Y_PROBE_TRIGGERED (READ(Y_MIN_PIN) ^ Y_MIN_ENDSTOP_INVERTING == 1)
+        #endif
+        #ifndef XYZ_MEASUREMENT_Y_POINTS
+          #define XYZ_MEASUREMENT_Y_POINTS 4
+        #endif
+        #ifndef XYZ_MEASUREMENT_CHECK_COUNT 
+          #define XYZ_MEASUREMENT_CHECK_COUNT 12
+        #endif
+
+        endstops.enable_globally(false);
+        lcd_setstatus("XYZ Calibration...");
+
+        float use_step = 1;
+        float back_distance = 3*use_step;
+        float use_step_slow = 0.1;
+
+        float z_max = 0, z_min = 0, z_size;
+        float x_max = 0, x_min = 0, x_size;
+        float y_max = 0, y_min = 0, y_size;
+        float y_dist_to_endstop, x_dist_to_endstop = -1;
+
+        set_destination_to_current();
+        
+        z_max = current_position[Z_AXIS];
+        // CHECK THE Z HEGHT (check it slowly, to avoid crash into bed!!)
+        // move to position where the probe can detect bed
+        do {
+          destination[Z_AXIS] = current_position[Z_AXIS] - use_step_slow;
+          prepare_move_to_destination();
+          stepper.synchronize();
+        } while ( !Z_PROBE_TRIGGERED );
+
+        do {
+          destination[Z_AXIS] = current_position[Z_AXIS] + 2*back_distance;
+          prepare_move_to_destination();
+          stepper.synchronize();
+        } while ( Z_PROBE_TRIGGERED );
+
+        do {
+          destination[Z_AXIS] = current_position[Z_AXIS] - use_step_slow;
+          prepare_move_to_destination();
+          stepper.synchronize();
+        } while ( !Z_PROBE_TRIGGERED );
+
+        z_min = current_position[Z_AXIS];
+        z_size = z_max - z_min;
+
+        SERIAL_PROTOCOLPGM("ZHeight: ");
+        SERIAL_PROTOCOL(z_size);
+        SERIAL_EOL;
+
+        destination[Z_AXIS] = current_position[Z_AXIS] - use_step_slow; // 0.1 lower because the bed can be uneven, but lets assume that its not more not equal
+        prepare_move_to_destination();
+        stepper.synchronize();
+        
+        // CHECK FOR BED SIZE AT X
+        // move to right end of the bed (until the bed could be detected)
+        do {
+          destination[X_AXIS] = current_position[X_AXIS] + use_step;
+          prepare_move_to_destination();
+          stepper.synchronize();
+        } while ( Z_PROBE_TRIGGERED );
+
+        for (uint8_t i=0;i<XYZ_MEASUREMENT_CHECK_COUNT;i++) {
+          destination[X_AXIS] = current_position[X_AXIS] - back_distance; // move few steps back to still be triggered and then make smaller moves
+          prepare_move_to_destination();
+          stepper.synchronize();
+
+          do {
+            destination[X_AXIS] = current_position[X_AXIS] + use_step_slow;
+            prepare_move_to_destination();
+            stepper.synchronize();
+          } while ( Z_PROBE_TRIGGERED );
+
+          do {
+            destination[X_AXIS] = current_position[X_AXIS] - use_step_slow;
+            prepare_move_to_destination();
+            stepper.synchronize();
+          } while ( !Z_PROBE_TRIGGERED );
+          
+          x_max += current_position[X_AXIS];
+        }
+        x_max /= XYZ_MEASUREMENT_CHECK_COUNT;
+
+        // lets find the left end of the bed (if its reacheable, if not it will be a small problem unfortunately)
+        do {
+          destination[X_AXIS] = current_position[X_AXIS] - use_step;
+          prepare_move_to_destination();
+          stepper.synchronize();
+        } while ( Z_PROBE_TRIGGERED && !X_PROBE_TRIGGERED );
+
+        // check what was triggered, if it was a X endstop or end of Z probe
+        if (X_PROBE_TRIGGERED) {
+          // assume that the x_min is at x_min_endstop place, no more tests ...
+          x_min = current_position[X_AXIS];
+          x_dist_to_endstop = 0;
+          
+        } else { // Z_PROBE_TRIGGERED
+          // do the check more precise
+          for (uint8_t i=0;i<XYZ_MEASUREMENT_CHECK_COUNT;i++) {
+            destination[X_AXIS] = current_position[X_AXIS] + back_distance; // move few steps back to still be triggered and then make smaller moves
+            prepare_move_to_destination();
+            stepper.synchronize();
+  
+            do {
+              destination[X_AXIS] = current_position[X_AXIS] - use_step_slow;
+              prepare_move_to_destination();
+              stepper.synchronize();
+            } while ( Z_PROBE_TRIGGERED );
+  
+            do {
+              destination[X_AXIS] = current_position[X_AXIS] + use_step_slow;
+              prepare_move_to_destination();
+              stepper.synchronize();
+            } while ( !Z_PROBE_TRIGGERED );
+            
+            x_min += current_position[X_AXIS];
+            
+          }
+
+          x_min /= XYZ_MEASUREMENT_CHECK_COUNT;
+           
+        } // END OF IF WHEN Z PROBE HAS BEEN TRIGGERED
+
+        x_size = x_max - x_min;
+        
+        SERIAL_PROTOCOLPGM("XMin: ");
+        SERIAL_PROTOCOL(x_min);
+        SERIAL_PROTOCOLPGM("Xmax: ");
+        SERIAL_PROTOCOL(x_max);
+        SERIAL_PROTOCOLPGM("Xsize: ");
+        SERIAL_PROTOCOL(x_size);
+        SERIAL_EOL;
+        
+        // CHECK THE BED SIZE AT Y AXIS
+        // move X to center of X to have a clear movement
+        destination[X_AXIS] = x_min + (x_size / 2);
+        prepare_move_to_destination();
+        stepper.synchronize();
+
+        // check the Y MAX at first 
+        do {
+          destination[Y_AXIS] = current_position[Y_AXIS] + use_step;
+          prepare_move_to_destination();
+          stepper.synchronize();
+        } while ( Z_PROBE_TRIGGERED ); // ok we arrived somewhere at end of Y table
+        
+        for (uint8_t i=0;i<XYZ_MEASUREMENT_CHECK_COUNT;i++) {
+          destination[Y_AXIS] = current_position[Y_AXIS] - back_distance; // move few steps back to still be triggered and then make smaller moves
+          prepare_move_to_destination();
+          stepper.synchronize();
+          do {
+            destination[Y_AXIS] = current_position[Y_AXIS] + use_step_slow;
+            prepare_move_to_destination();
+            stepper.synchronize();
+          } while ( Z_PROBE_TRIGGERED );
+          do {
+            destination[Y_AXIS] = current_position[Y_AXIS] - use_step_slow;
+            prepare_move_to_destination();
+            stepper.synchronize();
+          } while ( !Z_PROBE_TRIGGERED );
+          y_max += current_position[Y_AXIS];
+        }
+        y_max /= XYZ_MEASUREMENT_CHECK_COUNT;
+
+        // check the Y minimum...
+        do {
+          destination[Y_AXIS] = current_position[Y_AXIS] - use_step;
+          prepare_move_to_destination();
+          stepper.synchronize();
+        } while ( Z_PROBE_TRIGGERED && !Y_PROBE_TRIGGERED );
+
+        if ( Y_PROBE_TRIGGERED ) {
+          y_min = current_position[Y_AXIS];
+          y_dist_to_endstop = 0;
+          
+        } else {
+
+          for (uint8_t i=0;i<XYZ_MEASUREMENT_CHECK_COUNT;i++) {
+            destination[Y_AXIS] = current_position[Y_AXIS] + back_distance;
+            prepare_move_to_destination();
+            stepper.synchronize();
+    
+            do {
+              destination[Y_AXIS] = current_position[Y_AXIS] - use_step_slow;
+              prepare_move_to_destination();
+              stepper.synchronize();
+            } while ( Z_PROBE_TRIGGERED );
+    
+            do {
+              destination[Y_AXIS] = current_position[Y_AXIS] + use_step_slow;
+              prepare_move_to_destination();
+              stepper.synchronize();
+            } while ( !Z_PROBE_TRIGGERED );
+            y_min += current_position[Y_AXIS];
+          }
+  
+          y_min /=XYZ_MEASUREMENT_CHECK_COUNT;
+        }
+
+        y_size = y_max - y_min;
+
+        SERIAL_PROTOCOLPGM("YMin: ");
+        SERIAL_PROTOCOL(y_min);
+        SERIAL_PROTOCOLPGM("Ymax: ");
+        SERIAL_PROTOCOL(y_max);
+        SERIAL_PROTOCOLPGM("Ysize: ");
+        SERIAL_PROTOCOL(y_size);
+        SERIAL_EOL;
+
+        /* check distance from x_min to x_endstop */
+        /* but check it only, if it was not triggered already by endstop !! */
+        if ( x_dist_to_endstop == -1 ) {
+          destination[Y_AXIS] = y_min + (y_size / 2);
+          destination[X_AXIS] = x_min;
+          prepare_move_to_destination();
+          stepper.synchronize();
+  
+          do {
+            destination [X_AXIS] = current_position[X_AXIS] - use_step_slow;
+            prepare_move_to_destination();
+            stepper.synchronize();
+          } while ( !X_PROBE_TRIGGERED );
+  
+          x_dist_to_endstop = x_min - current_position[X_AXIS];
+        }
+
+        SERIAL_PROTOCOLPGM("X_TO_ENDSTOP:");
+        SERIAL_PROTOCOL(x_dist_to_endstop);
+        SERIAL_EOL;
+
+        // check_distance from y_min to y_endstop */
+        if ( y_dist_to_endstop == -1 ) {
+          destination[X_AXIS] = x_min + (x_size / 2);
+          destination[Y_AXIS] = y_min;
+          prepare_move_to_destination();
+          stepper.synchronize();
+  
+          do {
+            destination [Y_AXIS] = current_position[Y_AXIS] - use_step_slow;
+            prepare_move_to_destination();
+            stepper.synchronize();
+          } while ( !Y_PROBE_TRIGGERED );
+  
+          y_dist_to_endstop = y_min - current_position[Y_AXIS];
+        }
+
+        SERIAL_PROTOCOLPGM("Y_TO_ENDSTOP:");
+        SERIAL_PROTOCOL(y_dist_to_endstop);
+        SERIAL_EOL;
+        
+        lcd_setstatus("Is perpendicular?");
+
+        float min_diff, max_diff, final_difference;
+        float differences[(XYZ_MEASUREMENT_Y_POINTS+1)][(XYZ_MEASUREMENT_CHECK_COUNT+1)] = { 0 }; /* check 4 times at 4 different Y */
+        // check if the table is perpendicular...
+        
+        for (uint8_t yplace = 0; yplace < XYZ_MEASUREMENT_Y_POINTS; yplace++) {
+          destination[Y_AXIS] = y_min + (yplace+1) * (y_size / (XYZ_MEASUREMENT_Y_POINTS+1));
+          destination[X_AXIS] = x_max;
+          prepare_move_to_destination();
+          stepper.synchronize();
+          
+          for (uint8_t measno = 0; measno < XYZ_MEASUREMENT_CHECK_COUNT; measno++) {
+            do {
+              destination[X_AXIS] = current_position[X_AXIS] + use_step_slow;
+              prepare_move_to_destination();
+              stepper.synchronize();
+            } while ( Z_PROBE_TRIGGERED );
+            
+            do {
+              destination[X_AXIS] = current_position[X_AXIS] - use_step_slow;
+              prepare_move_to_destination();
+              stepper.synchronize();
+            } while ( !Z_PROBE_TRIGGERED );
+            destination[X_AXIS] = current_position[X_AXIS] - use_step_slow * 10;
+            prepare_move_to_destination();
+            stepper.synchronize();
+    
+            do {
+              destination [X_AXIS] = current_position[X_AXIS] + use_step_slow;
+              prepare_move_to_destination();
+              stepper.synchronize();
+            } while ( Z_PROBE_TRIGGERED );
+
+            differences[yplace][measno] = current_position[X_AXIS];
+          }
+        }
+
+        for (uint8_t i=0;i<XYZ_MEASUREMENT_Y_POINTS;i++) {
+          float average = 0;
+          for (uint8_t j=0;j<XYZ_MEASUREMENT_CHECK_COUNT;j++) {
+            average += differences[i][j];
+          }
+          average /= XYZ_MEASUREMENT_Y_POINTS;
+          if (i == 0) {
+            min_diff = average;
+            max_diff = average;
+          }
+          if (average < min_diff) {
+            min_diff = average;
+          }
+          if (average > max_diff) {
+            max_diff = average;
+          }
+          SERIAL_PROTOCOLPGM("X END OF BED AT Y ");
+          SERIAL_PROTOCOL((i+1) * (y_size / (XYZ_MEASUREMENT_Y_POINTS+1)));
+          SERIAL_PROTOCOLPGM(": ");
+          SERIAL_PROTOCOL(average);
+          SERIAL_EOL;
+        }
+
+        endstops.enable_globally(true);
+
+        final_difference = max_diff - min_diff;
+        if (final_difference < 0.1) {
+          lcd_setstatus("XY Diff < 0.1mm");
+        } else
+        if (final_difference < 0.2) {
+          lcd_setstatus("XY Diff < 0.2mm");
+        } else
+        if (final_difference < 0.3) {
+          lcd_setstatus("XY Diff < 0.3mm");
+        } else
+        if (final_difference < 0.4) {
+          lcd_setstatus("XY Diff < 0.4mm");
+        } else
+        if (final_difference < 0.5) {
+          lcd_setstatus("XY Diff < 0.5mm");
+        } else
+        if (final_difference < 0.6) {
+          lcd_setstatus("XY Diff < 0.6mm");
+        } else
+        if (final_difference < 0.7) {
+          lcd_setstatus("XY Diff < 0.7mm");
+        } else
+        if (final_difference < 0.8) {
+          lcd_setstatus("XY Diff < 0.8mm");
+        } else
+        if (final_difference < 0.9) {
+          lcd_setstatus("XY Diff < 0.9mm");
+        } else
+        if (final_difference < 1) {
+          lcd_setstatus("XY Diff < 1mm");
+        } else {
+          lcd_setstatus("NOT PERPENDICULAR!!");
+        }
+        
+        
+      
+      } break;
     }
     break;
 

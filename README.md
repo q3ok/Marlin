@@ -9,12 +9,17 @@ This version of Marlin is made especially for Prusa i3 MK2 Clone, it can cause p
 If you want a marlin RC8 with filament load/unload option - check the RC branch of my repo.
 
 ## Changes
+  - (BETA) XYZ Calibration, which checks for: (output is mostly on serial connection)
+    - Maximum Z height
+    - X/Y bed size
+    - X/Y distance from endstop to bed
+    - Perpendicularity of X/Y (displays it on screen and via serial)
   - Predefined configuration for Prusa i3 MK2 Clone by q3ok - https://prusaclone.wordpress.com/
   - Filament load and unload (M701 and M702) support from LCD and GCode
-  - Instant XYZE moved from LCD menu
-  - Added preheat options for materials like in Original MK2
-  - Added confirmation from LCD to stop print
-  - LCD Menu reorganization
+  - Instant XYZE moves from LCD menu
+  - Added preheat options for standard materials (like in Original MK2)
+  - Added stop print confirmation from LCD
+  - LCD menu reorganization
   
 ## License
 

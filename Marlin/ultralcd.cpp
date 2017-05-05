@@ -122,8 +122,6 @@ uint8_t lcdDrawUpdate = LCDVIEW_CLEAR_CALL_REDRAW; // Set when the LCD needs to 
   void lcd_move_menu();
   void lcd_control_menu();
   void lcd_control_temperature_menu();
-  //void lcd_control_temperature_preheat_material1_settings_menu();
-  //void lcd_control_temperature_preheat_material2_settings_menu();
   void lcd_control_motion_menu();
   void lcd_control_volumetric_menu();
   void lcd_preheat_menu();
@@ -1116,21 +1114,23 @@ void kill_screen(const char* lcd_msg) {
     /* NOT WORKING PROPERLY YET !!! */
     void lcd_display_leveling_grid() {
       if (lcd_clicked) { return lcd_goto_previous_menu(); }
-      char lgrid_lcd_line[ABL_GRID_POINTS_Y][(ABL_GRID_POINTS_X*5)] = {' '};
-      START_SCREEN();
-      for (uint8_t posy=0;posy<ABL_GRID_POINTS_Y;posy++) {
-        char lgrid_offset[5] = {'+'};
-        for (uint8_t posx=0;posx<ABL_GRID_POINTS_X;posx++) {
-          dtostrf(bed_level_grid[posx][posy], 4, 2, lgrid_offset);
-          for (uint8_t i=0;i<4;i++) {
-              lgrid_lcd_line[posy][(posx*5)+i] = lgrid_offset[i];
-          }
-        }         
+      if (lcdDrawUpdate) {
+        char lgrid_lcd_line[ABL_GRID_POINTS_Y][(ABL_GRID_POINTS_X*5)] = {' '};
+        START_SCREEN();
+        for (uint8_t posy=0;posy<ABL_GRID_POINTS_Y;posy++) {
+          char lgrid_offset[5] = {'+'};
+          for (uint8_t posx=0;posx<ABL_GRID_POINTS_X;posx++) {
+            dtostrf(bed_level_grid[posx][posy], 4, 2, lgrid_offset);
+            for (uint8_t i=0;i<4;i++) {
+                lgrid_lcd_line[posy][(posx*5)+i] = lgrid_offset[i];
+            }
+          }         
+        }
+        for (uint8_t i=ABL_GRID_POINTS_Y-1;i>=0;i--) {
+          STATIC_ITEM("", false,false, STRINGIFY(lgrid_lcd_line[i]));
+        }
+        END_SCREEN();
       }
-      for (uint8_t i=ABL_GRID_POINTS_Y-1;i>=0;i--) {
-        STATIC_ITEM("", false,false, STRINGIFY(lgrid_lcd_line[i]));
-      }
-      END_SCREEN();
     }
   
   
@@ -1263,47 +1263,6 @@ void kill_screen(const char* lcd_msg) {
     #endif //PIDTEMP
     END_MENU();
   }
-    
-  
- /**
-  * "Calibration" submenu
-  */  
-  void lcd_calibration_menu() {
-	  START_MENU();
-
-    //
-    // ^ Main
-    //
-    MENU_BACK(MSG_MAIN);
-	
-    //
-    // Set Home Offsets
-    //
-    //MENU_ITEM(function, MSG_SET_HOME_OFFSETS, lcd_set_home_offsets);
-    //MENU_ITEM(gcode, MSG_SET_ORIGIN, PSTR("G92 X0 Y0 Z0"));
-
-    //
-    // Level Bed
-    //
-    #if HAS_ABL
-      MENU_ITEM(gcode, MSG_LEVEL_BED,
-        axis_homed[X_AXIS] && axis_homed[Y_AXIS] ? PSTR("G29") : PSTR("G28\nG29")
-       );
-	    /* //DISABLED UNTIL IT WILL BE WORKING FULLY
-	    #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
-	      MENU_ITEM(submenu, MSG_DISPLAY_LEVELING_GRID, lcd_display_leveling_grid);
-      #endif
-      */
-    #endif
-
-    #if ENABLED(PIDTEMP)
-      MENU_ITEM(submenu, MSG_PID_AUTOTUNE, lcd_calibratepid_menu);
-    #endif
-	
-    END_MENU();
-  }
-
-  float move_menu_scale;
 
   /**
    * If the most recent manual move hasn't been fed to the planner yet,
@@ -1331,6 +1290,80 @@ void kill_screen(const char* lcd_msg) {
     manual_move_start_time = millis(); // instant move // + (move_menu_scale < 0.99 ? 0UL : 250UL); // delay for bigger moves
     manual_move_axis = (int8_t)axis;
   }
+  
+
+  #define MSG_CALIBRATE_LINE1 "Move the knob until"
+  #define MSG_CALIBRATE_LINE2 "Z axis hit the top"
+  #define MSG_CALIBRATE_LINE3 "Move by hand X and Y"
+  #define MSG_CALIBRATE_LINE4 "to a crossing place"
+
+  void lcd_calibrate_xyz() {
+    if (lcd_clicked) { 
+      enqueue_and_echo_commands_P(PSTR("G666"));
+      lcd_goto_screen(lcd_status_screen); /* quit from this submenu */
+    }
+    ENCODER_DIRECTION_NORMAL();
+    if (encoderPosition) {
+      refresh_cmd_timeout();
+      current_position[Z_AXIS] += abs(float((int32_t)encoderPosition) * 1.0);
+      manual_move_to_current(Z_AXIS);
+      encoderPosition = 0;
+      lcdDrawUpdate = LCDVIEW_REDRAW_NOW;
+    }   
+    if (lcdDrawUpdate) { 
+      START_SCREEN();
+      lcd_implementation_drawmenu_static(0, PSTR(MSG_CALIBRATE_LINE1), false, false);
+      lcd_implementation_drawmenu_static(1, PSTR(MSG_CALIBRATE_LINE2), false, false);
+      lcd_implementation_drawmenu_static(2, PSTR(MSG_CALIBRATE_LINE3), false, false);
+      lcd_implementation_drawmenu_static(3, PSTR(MSG_CALIBRATE_LINE4), false, false);
+      END_SCREEN();
+    }
+  }
+    
+  
+ /**
+  * "Calibration" submenu
+  */  
+  void lcd_calibration_menu() {
+	  START_MENU();
+
+    //
+    // ^ Main
+    //
+    MENU_BACK(MSG_MAIN);
+	
+    //
+    // Set Home Offsets
+    //
+    //MENU_ITEM(function, MSG_SET_HOME_OFFSETS, lcd_set_home_offsets);
+    //MENU_ITEM(gcode, MSG_SET_ORIGIN, PSTR("G92 X0 Y0 Z0"));
+
+    //
+    // Level Bed
+    //
+    #if HAS_ABL
+      MENU_ITEM(gcode, MSG_LEVEL_BED,
+        axis_homed[X_AXIS] && axis_homed[Y_AXIS] ? PSTR("G29") : PSTR("G28\nG29")
+       );
+	    //DISABLED UNTIL IT WILL BE WORKING FULLY
+	    /*#if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+	      MENU_ITEM(submenu, MSG_DISPLAY_LEVELING_GRID, lcd_display_leveling_grid);
+      #endif*/
+      
+    #endif
+
+    MENU_ITEM(submenu, "Calibrate XYZ", lcd_calibrate_xyz);
+
+    #if ENABLED(PIDTEMP)
+      MENU_ITEM(submenu, MSG_PID_AUTOTUNE, lcd_calibratepid_menu);
+    #endif
+	
+    END_MENU();
+  }
+
+  float move_menu_scale;
+
+
 
   /**
    *
