@@ -8315,6 +8315,7 @@ void process_next_command() {
           destination[X_AXIS] = current_position[X_AXIS] - use_step;
           prepare_move_to_destination();
           stepper.synchronize();
+          if (X_PROBE_TRIGGERED) break;
         } while ( Z_PROBE_TRIGGERED && !X_PROBE_TRIGGERED );
 
         // check what was triggered, if it was a X endstop or end of Z probe
@@ -8396,6 +8397,7 @@ void process_next_command() {
           destination[Y_AXIS] = current_position[Y_AXIS] - use_step;
           prepare_move_to_destination();
           stepper.synchronize();
+          if (Y_PROBE_TRIGGERED) break;
         } while ( Z_PROBE_TRIGGERED && !Y_PROBE_TRIGGERED );
 
         if ( Y_PROBE_TRIGGERED ) {
@@ -8456,10 +8458,14 @@ void process_next_command() {
         SERIAL_PROTOCOLPGM("X_TO_ENDSTOP:");
         SERIAL_PROTOCOL(x_dist_to_endstop);
         SERIAL_EOL;
+      
+        destination[X_AXIS] = x_min + (x_size / 2);
+        prepare_move_to_destination();
+        stepper.synchronize();
 
         // check_distance from y_min to y_endstop */
         if ( y_dist_to_endstop == -1 ) {
-          destination[X_AXIS] = x_min + (x_size / 2);
+          
           destination[Y_AXIS] = y_min;
           prepare_move_to_destination();
           stepper.synchronize();
@@ -8479,7 +8485,7 @@ void process_next_command() {
         
         lcd_setstatus("Is perpendicular?");
 
-        float min_diff, max_diff, final_difference;
+        float min_diff, max_diff, final_difference, front_diff, back_diff;
         float differences[(XYZ_MEASUREMENT_Y_POINTS+1)][(XYZ_MEASUREMENT_CHECK_COUNT+1)] = { 0 }; /* check 4 times at 4 different Y */
         // check if the table is perpendicular...
         
@@ -8524,6 +8530,7 @@ void process_next_command() {
           if (i == 0) {
             min_diff = average;
             max_diff = average;
+            front_diff = average;
           }
           if (average < min_diff) {
             min_diff = average;
@@ -8531,18 +8538,69 @@ void process_next_command() {
           if (average > max_diff) {
             max_diff = average;
           }
+          back_diff = average;
           SERIAL_PROTOCOLPGM("X END OF BED AT Y ");
           SERIAL_PROTOCOL((i+1) * (y_size / (XYZ_MEASUREMENT_Y_POINTS+1)));
           SERIAL_PROTOCOLPGM(": ");
           SERIAL_PROTOCOL(average);
           SERIAL_EOL;
         }
+        final_difference = max_diff - min_diff;
+
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("--- XYZ Calibration results ---");
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("Suggested values (enter them to Configuration.h):");
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("#define X_MIN_POS ");
+        SERIAL_PROTOCOL( floor(x_dist_to_endstop) - X_PROBE_OFFSET_FROM_EXTRUDER);
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("#define Y_MIN_POS ");
+        SERIAL_PROTOCOL( floor(y_dist_to_endstop) - Y_PROBE_OFFSET_FROM_EXTRUDER);
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("#define Z_MIN_POS 0"); // its constant!
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("#define X_MAX_POS ");
+        SERIAL_PROTOCOL( ceil(x_size) );
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("#define Y_MAX_POS ");
+        SERIAL_PROTOCOL( ceil(y_size) );
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("#define Z_MAX_POS ");
+        SERIAL_PROTOCOL( floor(z_size) );
+        SERIAL_EOL;
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("Detected bed size is (X Y Z): ");
+        SERIAL_PROTOCOL( ceil(x_size) );
+        SERIAL_PROTOCOLPGM(" x ");
+        SERIAL_PROTOCOL( ceil(y_size) );
+        SERIAL_PROTOCOLPGM(" x ");
+        SERIAL_PROTOCOL( floor(z_size) );
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("Use that sizes with your slicer software.");
+        SERIAL_EOL;
+        SERIAL_EOL;
+        SERIAL_PROTOCOLPGM("XY biggest difference (skew) is ");
+        SERIAL_PROTOCOL(final_difference);
+        SERIAL_PROTOCOLPGM("mm");
+        SERIAL_EOL;
+        if (front_diff == back_diff) {
+          SERIAL_PROTOCOLPGM("XY is perfectly perpendicular!");
+        } else
+        if (front_diff > back_diff) {
+          SERIAL_PROTOCOLPGM("To reduce skew, move left threaded rod sligtly backward using nuts and spanners"); SERIAL_EOL;
+          SERIAL_PROTOCOLPGM("Or move right threaded rod slightly to front");
+        } else
+        if (front_diff < back_diff) {
+          SERIAL_PROTOCOLPGM("To reduce skew, move right threaded rod sligtly backward  using nuts and spanners"); SERIAL_EOL;
+          SERIAL_PROTOCOLPGM("Or move left threaded rod slightly to front");
+        }
+        SERIAL_EOL;
 
         endstops.enable_globally(true);
-
-        final_difference = max_diff - min_diff;
+        
         if (final_difference < 0.1) {
-          lcd_setstatus("XY Diff < 0.1mm");
+          lcd_setstatus("XY Diff< 0.1mm GREAT");
         } else
         if (final_difference < 0.2) {
           lcd_setstatus("XY Diff < 0.2mm");
@@ -8569,13 +8627,11 @@ void process_next_command() {
           lcd_setstatus("XY Diff < 0.9mm");
         } else
         if (final_difference < 1) {
-          lcd_setstatus("XY Diff < 1mm");
+          lcd_setstatus("XY Diff < 1mm...");
         } else {
           lcd_setstatus("NOT PERPENDICULAR!!");
         }
-        
-        
-      
+
       } break;
     }
     break;
