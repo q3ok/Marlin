@@ -567,10 +567,11 @@
  * Stiff filament (PLA)        | K=47*L/10 | K=139*L/10 |
  * Softer filament (ABS, nGen) | K=88*L/10 | K=260*L/10 |
  */
-//#define LIN_ADVANCE
+#define LIN_ADVANCE
 
 #if ENABLED(LIN_ADVANCE)
-  #define LIN_ADVANCE_K 75
+  //#define LIN_ADVANCE_K 75
+  #define LIN_ADVANCE_K 40
 #endif
 
 // @section leveling
