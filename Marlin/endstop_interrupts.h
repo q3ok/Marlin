@@ -35,8 +35,10 @@
  * (Located in Marlin/buildroot/share/pin_interrupt_test/pin_interrupt_test.ino)
  */
 
- #ifndef _ENDSTOP_INTERRUPTS_H_
- #define _ENDSTOP_INTERRUPTS_H_
+#ifndef _ENDSTOP_INTERRUPTS_H_
+#define _ENDSTOP_INTERRUPTS_H_
+
+#include "macros.h"
 
 /**
  * Patch for pins_arduino.h (...\Arduino\hardware\arduino\avr\variants\mega\pins_arduino.h)
@@ -47,39 +49,37 @@
  */
 #if defined(ARDUINO_AVR_MEGA2560) || defined(ARDUINO_AVR_MEGA)
   #undef  digitalPinToPCICR
-  #define digitalPinToPCICR(p)    ( (((p) >= 10) && ((p) <= 15)) || \
-                                  (((p) >= 50) && ((p) <= 53)) || \
-                                  (((p) >= 62) && ((p) <= 69)) ? (&PCICR) : ((uint8_t *)0) )
+  #define digitalPinToPCICR(p)    ( WITHIN(p, 10, 15) || \
+                                    WITHIN(p, 50, 53) || \
+                                    WITHIN(p, 62, 69) ? &PCICR : (uint8_t*)0 )
   #undef  digitalPinToPCICRbit
-  #define digitalPinToPCICRbit(p) ( (((p) >= 10) && ((p) <= 13)) || (((p) >= 50) && ((p) <= 53)) ? 0 : \
-                                  ( (((p) >= 14) && ((p) <= 15)) ? 1 : \
-                                  ( (((p) >= 62) && ((p) <= 69)) ? 2 : \
-                                  0 ) ) )
+  #define digitalPinToPCICRbit(p) ( WITHIN(p, 10, 13) || WITHIN(p, 50, 53) ? 0 : \
+                                    WITHIN(p, 14, 15) ? 1 : \
+                                    WITHIN(p, 62, 69) ? 2 : \
+                                    0 )
   #undef  digitalPinToPCMSK
-  #define digitalPinToPCMSK(p)    ( (((p) >= 10) && ((p) <= 13)) || (((p) >= 50) && ((p) <= 53)) ? (&PCMSK0) : \
-                                  ( (((p) >= 14) && ((p) <= 15)) ? (&PCMSK1) : \
-                                  ( (((p) >= 62) && ((p) <= 69)) ? (&PCMSK2) : \
-                                  ((uint8_t *)0) ) ) )
+  #define digitalPinToPCMSK(p)    ( WITHIN(p, 10, 13) || WITHIN(p, 50, 53) ? &PCMSK0 : \
+                                    WITHIN(p, 14, 15) ? &PCMSK1 : \
+                                    WITHIN(p, 62, 69) ? &PCMSK2 : \
+                                    (uint8_t *)0 )
   #undef  digitalPinToPCMSKbit
-  #define digitalPinToPCMSKbit(p) ( (((p) >= 10) && ((p) <= 13)) ? ((p) - 6) : \
-                                  ( ((p) == 14) ? 2 : \
-                                  ( ((p) == 15) ? 1 : \
-                                  ( ((p) == 50) ? 3 : \
-                                  ( ((p) == 51) ? 2 : \
-                                  ( ((p) == 52) ? 1 : \
-                                  ( ((p) == 53) ? 0 : \
-                                  ( (((p) >= 62) && ((p) <= 69)) ? ((p) - 62) : \
-                                  0 ) ) ) ) ) ) ) )
+  #define digitalPinToPCMSKbit(p) ( WITHIN(p, 10, 13) ? ((p) - 6) : \
+                                    (p) == 14 || (p) == 51 ? 2 : \
+                                    (p) == 15 || (p) == 52 ? 1 : \
+                                    (p) == 50 ? 3 : \
+                                    (p) == 53 ? 0 : \
+                                    WITHIN(p, 62, 69) ? ((p) - 62) : \
+                                    0 )
 #endif
 
-volatile uint8_t e_hit = 0; // Different from 0 when the endstops shall be tested in detail.
-                            // Must be reset to 0 by the test function when the tests are finished.
+volatile uint8_t e_hit = 0; // Different from 0 when the endstops should be tested in detail.
+                            // Must be reset to 0 by the test function when finished.
 
 // Install Pin change interrupt for a pin. Can be called multiple times.
 void pciSetup(byte pin) {
-  *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // enable pin
-  PCIFR  |= bit (digitalPinToPCICRbit(pin)); // clear any outstanding interrupt
-  PCICR  |= bit (digitalPinToPCICRbit(pin)); // enable interrupt for the group
+  SBI(*digitalPinToPCMSK(pin), digitalPinToPCMSKbit(pin));  // enable pin
+  SBI(PCIFR, digitalPinToPCICRbit(pin)); // clear any outstanding interrupt
+  SBI(PCICR, digitalPinToPCICRbit(pin)); // enable interrupt for the group
 }
 
 // This is what is really done inside the interrupts.
@@ -111,7 +111,7 @@ void endstop_ISR(void) { endstop_ISR_worker(); }
 void setup_endstop_interrupts( void ) {
 
   #if HAS_X_MAX
-    #if (digitalPinToInterrupt(X_MAX_PIN) != NOT_AN_INTERRUPT) // if pin has an external interrupt
+    #if digitalPinToInterrupt(X_MAX_PIN) != NOT_AN_INTERRUPT // if pin has an external interrupt
       attachInterrupt(digitalPinToInterrupt(X_MAX_PIN), endstop_ISR, CHANGE); // assign it
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -121,7 +121,7 @@ void setup_endstop_interrupts( void ) {
   #endif
 
   #if HAS_X_MIN
-    #if (digitalPinToInterrupt(X_MIN_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(X_MIN_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(X_MIN_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -131,7 +131,7 @@ void setup_endstop_interrupts( void ) {
   #endif
 
   #if HAS_Y_MAX
-    #if (digitalPinToInterrupt(Y_MAX_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(Y_MAX_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(Y_MAX_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -141,7 +141,7 @@ void setup_endstop_interrupts( void ) {
   #endif
 
   #if HAS_Y_MIN
-    #if (digitalPinToInterrupt(Y_MIN_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(Y_MIN_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(Y_MIN_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -151,7 +151,7 @@ void setup_endstop_interrupts( void ) {
   #endif
 
   #if HAS_Z_MAX
-    #if (digitalPinToInterrupt(Z_MAX_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(Z_MAX_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(Z_MAX_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -161,7 +161,7 @@ void setup_endstop_interrupts( void ) {
   #endif
 
   #if HAS_Z_MIN
-    #if (digitalPinToInterrupt(Z_MIN_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(Z_MIN_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(Z_MIN_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -170,8 +170,48 @@ void setup_endstop_interrupts( void ) {
     #endif
   #endif
 
+  #if HAS_X2_MAX
+    #if (digitalPinToInterrupt(X2_MAX_PIN) != NOT_AN_INTERRUPT)
+      attachInterrupt(digitalPinToInterrupt(X2_MAX_PIN), endstop_ISR, CHANGE);
+    #else
+      // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
+      static_assert(digitalPinToPCICR(X2_MAX_PIN) != NULL, "X2_MAX_PIN is not interrupt-capable");
+      pciSetup(X2_MAX_PIN);
+    #endif
+  #endif
+
+  #if HAS_X2_MIN
+    #if (digitalPinToInterrupt(X2_MIN_PIN) != NOT_AN_INTERRUPT)
+      attachInterrupt(digitalPinToInterrupt(X2_MIN_PIN), endstop_ISR, CHANGE);
+    #else
+      // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
+      static_assert(digitalPinToPCICR(X2_MIN_PIN) != NULL, "X2_MIN_PIN is not interrupt-capable");
+      pciSetup(X2_MIN_PIN);
+    #endif
+  #endif
+
+  #if HAS_Y2_MAX
+    #if (digitalPinToInterrupt(Y2_MAX_PIN) != NOT_AN_INTERRUPT)
+      attachInterrupt(digitalPinToInterrupt(Y2_MAX_PIN), endstop_ISR, CHANGE);
+    #else
+      // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
+      static_assert(digitalPinToPCICR(Y2_MAX_PIN) != NULL, "Y2_MAX_PIN is not interrupt-capable");
+      pciSetup(Y2_MAX_PIN);
+    #endif
+  #endif
+
+  #if HAS_Y2_MIN
+    #if (digitalPinToInterrupt(Y2_MIN_PIN) != NOT_AN_INTERRUPT)
+      attachInterrupt(digitalPinToInterrupt(Y2_MIN_PIN), endstop_ISR, CHANGE);
+    #else
+      // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
+      static_assert(digitalPinToPCICR(Y2_MIN_PIN) != NULL, "Y2_MIN_PIN is not interrupt-capable");
+      pciSetup(Y2_MIN_PIN);
+    #endif
+  #endif
+
   #if HAS_Z2_MAX
-    #if (digitalPinToInterrupt(Z2_MAX_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(Z2_MAX_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(Z2_MAX_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -181,7 +221,7 @@ void setup_endstop_interrupts( void ) {
   #endif
 
   #if HAS_Z2_MIN
-    #if (digitalPinToInterrupt(Z2_MIN_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(Z2_MIN_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(Z2_MIN_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -191,7 +231,7 @@ void setup_endstop_interrupts( void ) {
   #endif
 
   #if HAS_Z_MIN_PROBE_PIN
-    #if (digitalPinToInterrupt(Z_MIN_PROBE_PIN) != NOT_AN_INTERRUPT)
+    #if digitalPinToInterrupt(Z_MIN_PROBE_PIN) != NOT_AN_INTERRUPT
       attachInterrupt(digitalPinToInterrupt(Z_MIN_PROBE_PIN), endstop_ISR, CHANGE);
     #else
       // Not all used endstop/probe -pins can raise interrupts. Please deactivate ENDSTOP_INTERRUPTS or change the pin configuration!
@@ -203,4 +243,4 @@ void setup_endstop_interrupts( void ) {
   // If we arrive here without raising an assertion, each pin has either an EXT-interrupt or a PCI.
 }
 
-#endif //_ENDSTOP_INTERRUPTS_H_
+#endif // _ENDSTOP_INTERRUPTS_H_

@@ -1,25 +1,22 @@
-# Marlin 3D Printer Firmware for MK2Clone
+# Marlin 3D Printer Firmware for MK2Clone r2
 
 <img align="top" width=175 src="buildroot/share/pixmaps/logo/marlin-250.png" />
 
-## Marlin for MK2Clone
+## Marlin for MK2Clone r2
 
-Based on Marlin 1.1.0-RC8 from 06 Dec 2016
-This version of Marlin is made especially for Prusa i3 MK2 Clone, it can cause problems with printers using different kinematics than XYZ.
-If you want a marlin RC8 with filament load/unload option - check the RC branch of my repo.
+BETA 
+This version of Marlin is made for MK2Clone r2 especially for Prusa i3 MK2 Clone.
 
 ## Changes
-  - (BETA) XYZ Calibration, which checks for: (output is mostly on serial connection)
-    - Maximum Z height
-    - X/Y bed size
-    - X/Y distance from endstop to bed
-    - Perpendicularity of X/Y (displays it on screen and via serial)
-  - Predefined configuration for Prusa i3 MK2 Clone by q3ok - https://prusaclone.wordpress.com/
-  - Filament load and unload (M701 and M702) support from LCD and GCode
-  - Instant XYZE moves from LCD menu
-  - Added preheat options for standard materials (like in Original MK2)
-  - Added stop print confirmation from LCD
-  - LCD menu reorganization
+ * Configuration premade for MK2Clone r2
+ * Calibration menu
+   * Calibration of Z axis by moving to top
+   * Automated UBL - G29 P1, P2 with manual measurement (if needed) and save mesh
+ * Filament change without parking when not printing (not working properly)
+ * Instant moves from LCD move menu (when using high manual move speeds this causes missing steps)
+ * Automatically enter move by 1mm instead of choosing 10/1/0.1mm
+ * Quick access to Z move by doubleclick while on status
+ * Quick access to Z offset adjustment while printing - new position on top of main menu
   
 ## License
 
