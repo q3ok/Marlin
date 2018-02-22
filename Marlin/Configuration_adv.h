@@ -1025,7 +1025,7 @@
   //#define Y2_IS_TMC2130
   //#define Z_IS_TMC2130
   //#define Z2_IS_TMC2130
-  //#define E0_IS_TMC2130
+  #define E0_IS_TMC2130
   //#define E1_IS_TMC2130
   //#define E2_IS_TMC2130
   //#define E3_IS_TMC2130
@@ -1089,10 +1089,10 @@
    * The default SW SPI pins are defined the respective pins files,
    * but you can override or define them here.
    */
-  //#define TMC_USE_SW_SPI
-  //#define TMC_SW_MOSI       -1
-  //#define TMC_SW_MISO       -1
-  //#define TMC_SW_SCK        -1
+  #define TMC_USE_SW_SPI
+  #define TMC_SW_MOSI       66
+  #define TMC_SW_MISO       44
+  #define TMC_SW_SCK        64
 
 
   /**
@@ -1178,7 +1178,7 @@
    * You need to enable FILAMENT_RUNOUT_SENSOR and wire DIAG1 pin to the filament sensor pin (RAMPS D4 by default)
    * Sensitivity is set in same way as for sensorless homing
    */
-  //#define EXTRUDER_STALL_DETECTION
+  #define EXTRUDER_STALL_DETECTION
   
   #if ENABLED(EXTRUDER_STALL_DETECTION)
     #define E0_STALL_SENSITIVITY 10
