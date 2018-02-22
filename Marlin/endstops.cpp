@@ -165,6 +165,10 @@ void Endstops::init() {
 
 } // Endstops::init
 
+#if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+  static float rehome_resume_position[XYZE];
+#endif
+
 void Endstops::report_state() {
   if (endstop_hit_bits) {
     #if ENABLED(ULTRA_LCD)
@@ -179,7 +183,7 @@ void Endstops::report_state() {
       _SET_STOP_CHAR(A,C); }while(0)
 
     #define _ENDSTOP_HIT_TEST(A,C) \
-      if (TEST(endstop_hit_bits, A ##_MIN) || TEST(endstop_hit_bits, A ##_MAX)) \
+      if (TEST(endstop_hit_bits, A ##_MIN) || TEST(endstop_hit_bits, A ##_MAX)) \ 
         _ENDSTOP_HIT_ECHO(A,C)
 
     #define ENDSTOP_HIT_TEST_X() _ENDSTOP_HIT_TEST(X,'X')
@@ -203,6 +207,36 @@ void Endstops::report_state() {
     #endif
 
     hit_on_purpose();
+
+    /* TODOTODO the code to rehome using TMC2130 should be there */
+    #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT) && ENABLED(SDSUPPORT)
+      if ( (TEST(endstop_hit_bits, X_MIN) || TEST(endstop_hit_bits, Y_MIN)) ) {
+        /* pause the print and save the current position */
+        card.pauseSDPrint();
+        stepper.synchronize();
+        COPY(rehome_resume_position, current_position);
+        
+        /* move the Z a little bit, obut only if its under desired height */
+        do_blocking_move_to_z(min(current_position[Z_AXIS] + REHOME_Z_RAISE, Z_MAX_POS), REHOME_Z_FEEDRATE);
+        stepper.synchronize();
+        
+        /* home X and Y */
+        endstops.enable(true); // Enable endstops for next homing move
+        do_homing_move(X_AXIS, 250);
+        do_homing_move(Y_AXIS, 250);
+        endstops.not_homing();
+
+        /* move the X and Y to saved position */
+        do_blocking_move_to_xy(rehome_resume_position[X_AXIS], rehome_resume_position[Y_AXIS], REHOME_XY_FEEDRATE);
+
+        /* move the Z to saved position */
+        do_blocking_move_to_z(rehome_resume_position[Z_AXIS], REHOME_Z_FEEDRATE);
+
+        /* continue the print */
+        card.startFileprint();
+        
+      }
+    #endif
 
     #if ENABLED(ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED) && ENABLED(SDSUPPORT)
       if (stepper.abort_on_endstop_hit) {
@@ -306,7 +340,6 @@ void Endstops::update() {
   #define _ENDSTOP_INVERTING(AXIS, MINMAX) AXIS ##_## MINMAX ##_ENDSTOP_INVERTING
   #define _ENDSTOP_HIT(AXIS, MINMAX) SBI(endstop_hit_bits, _ENDSTOP(AXIS, MINMAX))
 
-  #define SET_BIT(N,B,TF) do{ if (TF) SBI(N,B); else CBI(N,B); }while(0)
   // UPDATE_ENDSTOP_BIT: set the current endstop bits for an endstop to its status
   #define UPDATE_ENDSTOP_BIT(AXIS, MINMAX) SET_BIT(current_endstop_bits, _ENDSTOP(AXIS, MINMAX), (READ(_ENDSTOP_PIN(AXIS, MINMAX)) != _ENDSTOP_INVERTING(AXIS, MINMAX)))
   // COPY_BIT: copy the value of SRC_BIT to DST_BIT in DST
@@ -442,7 +475,7 @@ void Endstops::update() {
           #endif
           test_dual_x_endstops(X_MAX, X2_MAX);
         #else
-          if (X_MAX_TEST) UPDATE_ENDSTOP(X, MAX);
+          if (X_MIN_TEST) UPDATE_ENDSTOP(X, MAX);
         #endif
 
       #endif

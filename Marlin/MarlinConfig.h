@@ -29,6 +29,7 @@
 #include "Version.h"
 #include "Configuration.h"
 #include "Conditionals_LCD.h"
+#include "tmc_macros.h"
 #include "Configuration_adv.h"
 #include "pins.h"
 #ifndef USBCON
@@ -37,7 +38,5 @@
 #include "Arduino.h"
 #include "Conditionals_post.h"
 #include "SanityCheck.h"
-
-#include <avr/pgmspace.h>
 
 #endif // MARLIN_CONFIG_H

@@ -27,14 +27,13 @@
  *
  */
 
-#include "MarlinConfig.h"
+#include "Marlin.h"
 
 #if ENABLED(BEZIER_CURVE_SUPPORT)
 
 #include "planner.h"
 #include "language.h"
 #include "temperature.h"
-#include "Marlin.h"
 
 // See the meaning in the documentation of cubic_b_spline().
 #define MIN_STEP 0.002

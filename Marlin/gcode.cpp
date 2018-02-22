@@ -53,7 +53,7 @@ int GCodeParser::codenum;
 
 #if ENABLED(FASTER_GCODE_PARSER)
   // Optimized Parameters
-  uint32_t GCodeParser::codebits;  // found bits
+  byte GCodeParser::codebits[4];   // found bits
   uint8_t GCodeParser::param[26];  // parameter offsets from command_ptr
 #else
   char *GCodeParser::command_args; // start of parameters
@@ -76,7 +76,7 @@ void GCodeParser::reset() {
     subcode = 0;                        // No command sub-code
   #endif
   #if ENABLED(FASTER_GCODE_PARSER)
-    codebits = 0;                       // No codes yet
+    ZERO(codebits);                     // No codes yet
     //ZERO(param);                      // No parameters (should be safe to comment out this line)
   #endif
 }
@@ -189,7 +189,14 @@ void GCodeParser::parse(char *p) {
 
       while (*p == ' ') p++;                    // Skip spaces between parameters & values
 
-      const bool has_num = valid_float(p);
+      const bool has_num = NUMERIC(p[0])                            // [0-9]
+                        || (p[0] == '.' && NUMERIC(p[1]))           // .[0-9]
+                        || (
+                              (p[0] == '-' || p[0] == '+') && (     // [-+]
+                                NUMERIC(p[1])                       //     [0-9]
+                                || (p[1] == '.' && NUMERIC(p[2]))   //     .[0-9]
+                              )
+                            );
 
       #if ENABLED(DEBUG_GCODE_PARSER)
         if (debug) {
@@ -211,7 +218,13 @@ void GCodeParser::parse(char *p) {
       #endif
 
       #if ENABLED(FASTER_GCODE_PARSER)
-        set(code, has_num ? p : NULL);          // Set parameter exists and pointer (NULL for no number)
+      {
+        set(code, has_num ? p : NULL            // Set parameter exists and pointer (NULL for no number)
+          #if ENABLED(DEBUG_GCODE_PARSER)
+            , debug
+          #endif
+        );
+      }
       #endif
     }
     else if (!string_arg) {                     // Not A-Z? First time, keep as the string_arg
@@ -263,13 +276,13 @@ void GCodeParser::unknown_command_error() {
     SERIAL_ECHO(codenum);
     SERIAL_ECHOLNPGM(")");
     #if ENABLED(FASTER_GCODE_PARSER)
-      SERIAL_ECHOPGM(" args: \"");
+      SERIAL_ECHO(" args: \"");
       for (char c = 'A'; c <= 'Z'; ++c)
         if (seen(c)) { SERIAL_CHAR(c); SERIAL_CHAR(' '); }
     #else
       SERIAL_ECHOPAIR(" args: \"", command_args);
     #endif
-    SERIAL_CHAR('"');
+    SERIAL_ECHOPGM("\"");
     if (string_arg) {
       SERIAL_ECHOPGM(" string: \"");
       SERIAL_ECHO(string_arg);

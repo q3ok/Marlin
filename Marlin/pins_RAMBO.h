@@ -55,6 +55,13 @@
 #define SERVO3_PIN          5 // PWM header pin 5
 
 //
+// Z Probe (when not Z_MIN_PIN)
+//
+#ifndef Z_MIN_PROBE_PIN
+  #define Z_MIN_PROBE_PIN  30
+#endif
+
+//
 // Limit Switches
 //
 #define X_MIN_PIN          12
@@ -63,13 +70,6 @@
 #define Y_MAX_PIN          23
 #define Z_MIN_PIN          10
 #define Z_MAX_PIN          30
-
-//
-// Z Probe (when not Z_MIN_PIN)
-//
-#ifndef Z_MIN_PROBE_PIN
-  #define Z_MIN_PROBE_PIN  30
-#endif
 
 //
 // Steppers
@@ -108,9 +108,6 @@
 
 #define DIGIPOTSS_PIN      38
 #define DIGIPOT_CHANNELS {4,5,3,0,1} // X Y Z E0 E1 digipot channels to stepper driver mapping
-#ifndef DIGIPOT_MOTOR_CURRENT
-  #define DIGIPOT_MOTOR_CURRENT { 135,135,135,135,135 }   // Values 0-255 (RAMBO 135 = ~0.75A, 185 = ~1A)
-#endif
 
 //
 // Temperature Sensors
@@ -192,7 +189,7 @@
       #define STAT_LED_RED_PIN 22
       #define STAT_LED_BLUE_PIN 32
 
-    #else // !VIKI2 && !miniVIKI
+    #else
 
       #define BEEPER_PIN 79 // AUX-4
 
@@ -203,7 +200,7 @@
 
       #define SD_DETECT_PIN 81
 
-    #endif // !VIKI2 && !miniVIKI
+    #endif // VIKI2/miniVIKI
 
   #else // !NEWPANEL - old style panel with shift register
 

@@ -31,8 +31,9 @@
  */
 
 #define BOARD_NAME "Melzi (Creality)"
+#define IS_MELZI
 
-#include "pins_MELZI.h"
+#include "pins_SANGUINOLOLU_12.h"
 
 // For the stock CR-10 use the REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER
 //   option for the display in Configuration.h
