@@ -968,7 +968,7 @@ void kill_screen(const char* lcd_msg) {
     }
     
     void lcd_calibration_mesh() {
-      enqueue_and_echo_commands_P(PSTR("M500\nM501\nG28\nG29 P1\nG29 F 1.0\nG29 A\nG29 S1\nM500"));
+      enqueue_and_echo_commands_P(PSTR("M500\nM501\nG28\nG29 P1\nG29 P2\nG29 F 1.0\nG29 A\nG29 S1\nM500"));
       lcd_return_to_status();
     }
   
@@ -1054,9 +1054,11 @@ void kill_screen(const char* lcd_msg) {
         #endif
       }
     #endif // SDSUPPORT
-    
+
     #if ENABLED(ENABLE_CALIBRATION_MENU)
-      MENU_ITEM(submenu, MSG_CALIBRATION_MENU, _lcd_calibration_menu);
+      if (!planner.movesplanned() && !IS_SD_PRINTING) {
+        MENU_ITEM(submenu, MSG_CALIBRATION_MENU, _lcd_calibration_menu);
+      }
     #endif
     
     #if ENABLED(CUSTOM_USER_MENUS)

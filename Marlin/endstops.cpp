@@ -210,7 +210,7 @@ void Endstops::report_state() {
 
     /* TODOTODO the code to rehome using TMC2130 should be there */
     #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT) && ENABLED(SDSUPPORT)
-      if ( (TEST(endstop_hit_bits, X_MIN) || TEST(endstop_hit_bits, Y_MIN)) ) {
+      if ( card.sdprinting && (TEST(endstop_hit_bits, X_MIN) || TEST(endstop_hit_bits, Y_MIN)) ) {
         /* pause the print and save the current position */
         card.pauseSDPrint();
         stepper.synchronize();

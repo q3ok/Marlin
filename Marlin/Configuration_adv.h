@@ -1048,14 +1048,14 @@
    */
 
   #define R_SENSE           0.11  // R_sense resistor for SilentStepStick2130
-  #define HOLD_MULTIPLIER    0.2  // Scales down the holding current from run current
+  #define HOLD_MULTIPLIER    0.5  // Scales down the holding current from run current
   #define INTERPOLATE       true  // Interpolate X/Y/Z_MICROSTEPS to 256
 
   #define X_CURRENT          800  // rms current in mA. Multiply by 1.41 for peak current.
-  #define X_MICROSTEPS        16  // 0..256
+  #define X_MICROSTEPS        32  // 0..256
 
   #define Y_CURRENT          800
-  #define Y_MICROSTEPS        16
+  #define Y_MICROSTEPS        32
 
   #define Z_CURRENT          800
   #define Z_MICROSTEPS        16
@@ -1070,7 +1070,7 @@
   #define Z2_MICROSTEPS       16
 
   #define E0_CURRENT         800
-  #define E0_MICROSTEPS       16
+  #define E0_MICROSTEPS       32
 
   #define E1_CURRENT         800
   #define E1_MICROSTEPS       16
@@ -1112,7 +1112,7 @@
    * M912 - Clear stepper driver overtemperature pre-warn condition flag.
    * M122 S0/1 - Report driver parameters (Requires TMC_DEBUG)
    */
-  #define MONITOR_DRIVER_STATUS
+  //#define MONITOR_DRIVER_STATUS
 
   #if ENABLED(MONITOR_DRIVER_STATUS)
     #define CURRENT_STEP_DOWN     50  // [mA]
@@ -1128,9 +1128,9 @@
    */
   #define HYBRID_THRESHOLD
 
-  #define X_HYBRID_THRESHOLD     60  // [mm/s]
+  #define X_HYBRID_THRESHOLD      60  // [mm/s]
   #define X2_HYBRID_THRESHOLD    100
-  #define Y_HYBRID_THRESHOLD     60
+  #define Y_HYBRID_THRESHOLD      60
   #define Y2_HYBRID_THRESHOLD    100
   #define Z_HYBRID_THRESHOLD       3
   #define Z2_HYBRID_THRESHOLD      3
@@ -1155,8 +1155,8 @@
   #define SENSORLESS_HOMING // TMC2130 only
 
   #if ENABLED(SENSORLESS_HOMING)
-    #define X_HOMING_SENSITIVITY  2
-    #define Y_HOMING_SENSITIVITY  2
+    #define X_HOMING_SENSITIVITY  3
+    #define Y_HOMING_SENSITIVITY  3
 
     /**
      * stallGuard2 can be also used to detect if there are missed steps, when the endstop will be triggered
@@ -1188,7 +1188,7 @@
    * Enable M122 debugging command for TMC stepper drivers.
    * M122 S0/1 will enable continous reporting.
    */
-  #define TMC_DEBUG
+  //#define TMC_DEBUG
 
   /**
    * You can set your own advanced settings by filling in predefined functions.
