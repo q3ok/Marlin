@@ -1139,6 +1139,12 @@
   #define E2_HYBRID_THRESHOLD     30
   #define E3_HYBRID_THRESHOLD     30
   #define E4_HYBRID_THRESHOLD     30
+  
+  /**
+   * Define values to which the speed will be reduced while turning on the STEALTH mode
+   */
+  #define STEALTH_MAX_XY_SPEED 50 // [mm/s]
+  #define STEALTH_MAX_XY_ACCELERATION 600 // [mm/s2]
 
   /**
    * Use stallGuard2 to sense an obstacle and trigger an endstop.
@@ -1177,6 +1183,7 @@
    * Use stallGuard2 to detect clogged filament, and automatically trigger the filament change same as filament runout
    * You need to enable FILAMENT_RUNOUT_SENSOR and wire DIAG1 pin to the filament sensor pin (RAMPS D4 by default)
    * Sensitivity is set in same way as for sensorless homing
+   * (NOT TESTED YET)
    */
   #define EXTRUDER_STALL_DETECTION
   
@@ -1387,7 +1394,6 @@
  * Note: May require analog pins to be defined for other boards.
  */
 //#define FILAMENT_WIDTH_SENSOR
-
 #if ENABLED(FILAMENT_WIDTH_SENSOR)
   #define FILAMENT_SENSOR_EXTRUDER_NUM 0    // Index of the extruder that has the filament sensor. :[0,1,2,3,4]
   #define MEASUREMENT_DELAY_CM        14    // (cm) The distance from the filament sensor to the melting chamber

@@ -910,6 +910,19 @@
   #endif
 #endif
 
+#ifndef MSG_TMCMODE
+  #define MSG_TMCMODE                         _UxGT("Work mode")
+#endif
+#ifndef MSG_TMCMODE_POWER
+  #define MSG_TMCMODE_POWER                   _UxGT("Set POWER")
+#endif
+#ifndef MSG_TMCMODE_HYBRID
+  #define MSG_TMCMODE_HYBRID                  _UxGT("Set HYBRID")
+#endif
+#ifndef MSG_TMCMODE_STEALTH
+  #define MSG_TMCMODE_STEALTH                 _UxGT("Set STEALTH")
+#endif
+
 #ifndef MSG_INFO_MIN_TEMP
   #define MSG_INFO_MIN_TEMP                   _UxGT("Min Temp")
 #endif

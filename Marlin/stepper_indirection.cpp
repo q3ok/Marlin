@@ -131,6 +131,7 @@
   #include <TMC2130Stepper.h>
   #include "planner.h"
   #include "enum.h"
+  #include "tmc_modes.h"
 
   #if ENABLED(TMC_USE_SW_SPI)
     #define _TMC2130_DEFINE(ST) TMC2130Stepper stepper##ST(ST##_ENABLE_PIN, ST##_DIR_PIN, ST##_STEP_PIN, ST##_CS_PIN, TMC_SW_MOSI, TMC_SW_MISO, TMC_SW_SCK)
@@ -187,21 +188,17 @@
     st.hysterisis_start(3);
     st.hysterisis_end(2);
     st.diag1_active_high(1); // For sensorless homing
-    #if ENABLED(STEALTHCHOP)
+    if (tmc_mode_stealthchop_enabled) {
       st.stealth_freq(1); // f_pwm = 2/683 f_clk
       st.stealth_autoscale(1);
       st.stealth_gradient(5);
       st.stealth_amplitude(255);
       st.stealthChop(1);
-      #if ENABLED(HYBRID_THRESHOLD)
+      if (tmc_mode_hybrid) {
         st.stealth_max_speed(12650000UL*microsteps/(256*thrs*spmm));
-      #else
-        UNUSED(thrs);
-        UNUSED(spmm);
-      #endif
-    #elif ENABLED(SENSORLESS_HOMING)
-      st.coolstep_min_speed(1024UL * 1024UL - 1UL);
-    #endif
+      }
+    }
+    st.coolstep_min_speed(1024UL * 1024UL - 1UL); // sensorless_homing always enabled for mk2clone r2
     st.GSTAT(); // Clear GSTAT
   }
 

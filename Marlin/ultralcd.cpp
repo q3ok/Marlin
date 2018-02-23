@@ -3197,11 +3197,21 @@ void kill_screen(const char* lcd_msg) {
 
   #endif
 
+  void lcd_control_tmc_mode_menu() {
+    START_MENU();
+    MENU_BACK(MSG_CONTROL);
+    MENU_ITEM(gcode, MSG_TMCMODE_POWER, PSTR("M950"));
+    MENU_ITEM(gcode, MSG_TMCMODE_STEALTH, PSTR("M951"));
+    MENU_ITEM(gcode, MSG_TMCMODE_HYBRID, PSTR("M952"));
+    END_MENU();
+  }
+
   void lcd_control_menu() {
     START_MENU();
     MENU_BACK(MSG_MAIN);
     MENU_ITEM(submenu, MSG_TEMPERATURE, lcd_control_temperature_menu);
     MENU_ITEM(submenu, MSG_MOTION, lcd_control_motion_menu);
+    MENU_ITEM(submenu, MSG_TMCMODE, lcd_control_tmc_mode_menu);
     MENU_ITEM(submenu, MSG_FILAMENT, lcd_control_filament_menu);
 
     #if HAS_LCD_CONTRAST

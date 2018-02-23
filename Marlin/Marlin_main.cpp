@@ -314,6 +314,10 @@
   #include "endstop_interrupts.h"
 #endif
 
+#if ENABLED(HAVE_TMC2130)
+  #include "tmc_modes.h"
+#endif
+
 #if ENABLED(M100_FREE_MEMORY_WATCHER)
   void gcode_M100();
   void M100_dump_routine(const char * const title, const char *start, const char *end);
@@ -2879,7 +2883,7 @@ static void do_homing_move(const AxisEnum axis, const float distance, const floa
 #if ENABLED(SENSORLESS_HOMING)
   template<typename TMC>
   void tmc_sensorless_homing(TMC &st, bool enable=true) {
-    #if ENABLED(STEALTHCHOP)
+    if (tmc_mode_stealthchop_enabled) {
       if (enable) {
         st.coolstep_min_speed(1024UL * 1024UL - 1UL);
         st.stealthChop(0);
@@ -2888,7 +2892,7 @@ static void do_homing_move(const AxisEnum axis, const float distance, const floa
         st.coolstep_min_speed(0);
         st.stealthChop(1);
       }
-    #endif
+    }
 
     #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
       st.diag1_stall(1); /* todo: add checking if this is X or Y or E axis, which are used with this */
@@ -12372,7 +12376,20 @@ void process_parsed_command() {
             gcode_M915();
             break;
         #endif
-      #endif
+
+        case 950:
+          tmc_mode_set_power();
+          break;
+        
+        case 951:
+          tmc_mode_set_stealth();
+          break;
+        
+        case 952:
+          tmc_mode_set_hybrid();
+          break;
+        
+      #endif // HAVE_TMC2130
 
       #if HAS_MICROSTEPS
 
