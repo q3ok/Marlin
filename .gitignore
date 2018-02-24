@@ -29,7 +29,6 @@ _Version.h
 applet/
 *.DS_Store
 
-
 #
 # Misc
 #
@@ -120,7 +119,32 @@ tags
 .pio*
 .pioenvs
 .piolibdeps
-lib/readme.txt
+.clang_complete
+.gcc-flags.json
+/lib/
+
+# Workaround for Deviot+platformio quirks
+Marlin/lib
+Marlin/platformio.ini
+Marlin/*/platformio.ini
+Marlin/*/*/platformio.ini
+Marlin/*/*/*/platformio.ini
+Marlin/*/*/*/*/platformio.ini
+Marlin/.travis.yml
+Marlin/*/.travis.yml
+Marlin/*/*/.travis.yml
+Marlin/*/*/*/.travis.yml
+Marlin/*/*/*/*/.travis.yml
+Marlin/.gitignore
+Marlin/*/.gitignore
+Marlin/*/*/.gitignore
+Marlin/*/*/*/.gitignore
+Marlin/*/*/*/*/.gitignore
+Marlin/readme.txt
+Marlin/*/readme.txt
+Marlin/*/*/readme.txt
+Marlin/*/*/*/readme.txt
+Marlin/*/*/*/*/readme.txt
 
 #Visual Studio
 *.sln
@@ -132,14 +156,14 @@ __vm/
 .vs/
 vc-fileutils.settings
 
-#VScode
+#Visual Studio Code
 .vscode
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 
 #cmake
 CMakeLists.txt
-Marlin/CMakeLists.txt
+src/CMakeLists.txt
 CMakeListsPrivate.txt
 
 #CLion
