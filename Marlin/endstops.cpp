@@ -62,6 +62,8 @@ void Endstops::init() {
   #if HAS_X_MIN
     #if ENABLED(ENDSTOPPULLUP_XMIN)
       SET_INPUT_PULLUP(X_MIN_PIN);
+    #elif ENABLED(ENDSTOPPULLDOWN_XMIN)
+      SET_INPUT_PULLDOWN(X_MIN_PIN);
     #else
       SET_INPUT(X_MIN_PIN);
     #endif
@@ -78,6 +80,8 @@ void Endstops::init() {
   #if HAS_Y_MIN
     #if ENABLED(ENDSTOPPULLUP_YMIN)
       SET_INPUT_PULLUP(Y_MIN_PIN);
+    #elif ENABLED(ENDSTOPPULLDOWN_YMIN)
+      SET_INPUT_PULLDOWN(Y_MIN_PIN);
     #else
       SET_INPUT(Y_MIN_PIN);
     #endif
@@ -165,10 +169,6 @@ void Endstops::init() {
 
 } // Endstops::init
 
-#if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
-  static float rehome_resume_position[XYZE];
-#endif
-
 void Endstops::report_state() {
   if (endstop_hit_bits) {
     #if ENABLED(ULTRA_LCD)
@@ -207,36 +207,6 @@ void Endstops::report_state() {
     #endif
 
     hit_on_purpose();
-
-    /* TODOTODO the code to rehome using TMC2130 should be there */
-    #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT) && ENABLED(SDSUPPORT)
-      if ( card.sdprinting && (TEST(endstop_hit_bits, X_MIN) || TEST(endstop_hit_bits, Y_MIN)) ) {
-        /* pause the print and save the current position */
-        card.pauseSDPrint();
-        stepper.synchronize();
-        COPY(rehome_resume_position, current_position);
-        
-        /* move the Z a little bit, obut only if its under desired height */
-        do_blocking_move_to_z(min(current_position[Z_AXIS] + REHOME_Z_RAISE, Z_MAX_POS), REHOME_Z_FEEDRATE);
-        stepper.synchronize();
-        
-        /* home X and Y */
-        endstops.enable(true); // Enable endstops for next homing move
-        do_homing_move(X_AXIS, 250);
-        do_homing_move(Y_AXIS, 250);
-        endstops.not_homing();
-
-        /* move the X and Y to saved position */
-        do_blocking_move_to_xy(rehome_resume_position[X_AXIS], rehome_resume_position[Y_AXIS], REHOME_XY_FEEDRATE);
-
-        /* move the Z to saved position */
-        do_blocking_move_to_z(rehome_resume_position[Z_AXIS], REHOME_Z_FEEDRATE);
-
-        /* continue the print */
-        card.startFileprint();
-        
-      }
-    #endif
 
     #if ENABLED(ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED) && ENABLED(SDSUPPORT)
       if (stepper.abort_on_endstop_hit) {

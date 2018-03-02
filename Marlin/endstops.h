@@ -29,6 +29,7 @@
 
 #include "enum.h"
 #include "MarlinConfig.h"
+#include "tmc_modes.h"
 
 class Endstops {
 

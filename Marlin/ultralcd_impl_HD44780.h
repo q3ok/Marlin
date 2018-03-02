@@ -520,9 +520,9 @@ void lcd_printPGM_utf(const char *str, uint8_t n=LCD_WIDTH) {
 
   static void logo_lines(const char* const extra) {
     int16_t indent = (LCD_WIDTH - 8 - lcd_strlen_P(extra)) / 2;
-    lcd.setCursor(indent, 0); lcd.print('\x00'); lcd_printPGM(PSTR( "------" ));  lcd.write('\x01');
-    lcd.setCursor(indent, 1);                    lcd_printPGM(PSTR("|Marlin|"));  lcd_printPGM(extra);
-    lcd.setCursor(indent, 2); lcd.write('\x02'); lcd_printPGM(PSTR( "------" ));  lcd.write('\x03');
+    lcd.setCursor(indent, 0); lcd.print('\x00'); lcd_printPGM(PSTR( "-----------" ));  lcd.write('\x01');
+    lcd.setCursor(indent, 1);                    lcd_printPGM(PSTR("|MK2Clone r2|"));  lcd_printPGM(extra);
+    lcd.setCursor(indent, 2); lcd.write('\x02'); lcd_printPGM(PSTR( "-----------" ));  lcd.write('\x03');
   }
 
   void lcd_bootscreen() {

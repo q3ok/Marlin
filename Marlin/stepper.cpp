@@ -392,6 +392,10 @@ void Stepper::isr() {
     sei();
   #endif
 
+  #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+    tmc_isr();
+  #endif
+
   #define _SPLIT(L) (ocr_val = (uint16_t)L)
   #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
 

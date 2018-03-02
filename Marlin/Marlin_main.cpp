@@ -2820,7 +2820,7 @@ static void clean_up_after_endstop_or_probe_move() {
  * Home an individual linear axis
  */
 static void do_homing_move(const AxisEnum axis, const float distance, const float fr_mm_s=0.0) {
-
+  
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) {
       SERIAL_ECHOPAIR(">>> do_homing_move(", axis_codes[axis]);
@@ -2873,6 +2873,7 @@ static void do_homing_move(const AxisEnum axis, const float distance, const floa
       SERIAL_EOL();
     }
   #endif
+  
 }
 
 /**
@@ -2883,22 +2884,41 @@ static void do_homing_move(const AxisEnum axis, const float distance, const floa
 #if ENABLED(SENSORLESS_HOMING)
   template<typename TMC>
   void tmc_sensorless_homing(TMC &st, bool enable=true) {
+
     if (tmc_mode_stealthchop_enabled) {
-      if (enable) {
-        st.coolstep_min_speed(1024UL * 1024UL - 1UL);
-        st.stealthChop(0);
-      }
-      else {
-        st.coolstep_min_speed(0);
-        st.stealthChop(1);
-      }
+      st.stealthChop(!enable);
     }
+    /*if (enable) {
+      st.sfilt(false);
+    }*/
+    st.TCOOLTHRS(1024UL * 1024UL - 1UL); /* full speed range */
+    /* disable and enable coolStep to make sure that stallGuard will work */
+    /* From TMC2130 Datasheet: The stall detection and stallGuard output
+      signal becomes enabled when exceeding this velocity. In nondcStep
+      mode, it becomes disabled again once the velocity falls
+      below this threshold.*/
+    //if (false && enable) {
+      //st.coolstep_min_speed(0); //delay(50); /* reeenable the signal from stallGuard (??) */
+      //st.coolstep_min_speed(1024UL * 1024UL - 1UL);
+    //}
+    // TCOOLTHRS >= TSTEP required to make the stallGuard working properly
+    st.diag1_stall(enable ? 1 : 0);
+
+    //if (!enable && tmc_mode_stealthchop_enabled) {
+      /* set the coolstep back */
+      //st.coolstep_min_speed(TMC2130_TCOOL_THRS); // was 0
+    //}
 
     #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
-      st.diag1_stall(1); /* todo: add checking if this is X or Y or E axis, which are used with this */
-    #else
-      st.diag1_stall(enable ? 1 : 0);
+      if (!enable && tmc_modeset_power) {
+        //st.sfilt(true);
+        //st.coolstep_min_speed(0); delay(50); /* reeenable the signal from stallGuard (??) */
+        //st.coolstep_min_speed(TMC2130_TCOOL_THRS);
+        st.TCOOLTHRS(TMC2130_TCOOL_THRS);
+        st.diag1_stall(1);
+      }
     #endif
+
   }
 #endif
 
@@ -2959,10 +2979,20 @@ static void homeaxis(const AxisEnum axis) {
   // Disable stealthChop if used. Enable diag1 pin on driver.
   #if ENABLED(SENSORLESS_HOMING)
     #if ENABLED(X_IS_TMC2130)
-      if (axis == X_AXIS) tmc_sensorless_homing(stepperX);
+      if (axis == X_AXIS) {
+        tmc_sensorless_homing(stepperX, true);
+        #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+          stepperX.sgt(X_HOMING_SENSITIVITY);
+        #endif
+      }
     #endif
     #if ENABLED(Y_IS_TMC2130)
-      if (axis == Y_AXIS) tmc_sensorless_homing(stepperY);
+      if (axis == Y_AXIS) {
+        tmc_sensorless_homing(stepperY, true);
+        #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+          stepperY.sgt(Y_HOMING_SENSITIVITY);
+        #endif
+      }
     #endif
   #endif
 
@@ -3069,10 +3099,20 @@ static void homeaxis(const AxisEnum axis) {
   // Re-enable stealthChop if used. Disable diag1 pin on driver.
   #if ENABLED(SENSORLESS_HOMING)
     #if ENABLED(X_IS_TMC2130)
-      if (axis == X_AXIS) tmc_sensorless_homing(stepperX, false);
+      if (axis == X_AXIS) {
+        tmc_sensorless_homing(stepperX, false);
+        #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+          stepperX.sgt(REHOME_X_SENSITIVITY);
+        #endif
+      }
     #endif
     #if ENABLED(Y_IS_TMC2130)
-      if (axis == Y_AXIS) tmc_sensorless_homing(stepperY, false);
+      if (axis == Y_AXIS) {
+        tmc_sensorless_homing(stepperY, false);
+        #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+          stepperY.sgt(REHOME_Y_SENSITIVITY);
+        #endif
+      }
     #endif
   #endif
 
@@ -3936,6 +3976,10 @@ inline void gcode_G4() {
       // This causes the carriage on Dual X to unpark
       #if ENABLED(DUAL_X_CARRIAGE)
         active_extruder_parked = false;
+      #endif
+
+      #if ENABLED(SENSORLESS_HOMING)
+        safe_delay(500); // Short delay needed to settle
       #endif
 
       do_blocking_move_to_xy(destination[X_AXIS], destination[Y_AXIS]);
@@ -13941,6 +13985,7 @@ void disable_all_steppers() {
       SERIAL_ECHO(st.getCurrent());
       SERIAL_ECHOLN("mA)");
     }
+
     #if CURRENT_STEP_DOWN > 0
       // Decrease current if is_otpw is true and driver is enabled and there's been more then 4 warnings
       if (data.is_otpw && !st.isEnabled() && otpw_cnt > 4) {
@@ -14208,8 +14253,80 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) {
     monitor_tmc_driver();
   #endif
 
+  #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+    tmc_monitor_crash();
+  #endif
+
+  // DEBUG TO GET THE BEST VALUES
+  /*
+    static millis_t next_caaOT = 0;
+    if (ELAPSED(millis(), next_caaOT)) {
+      next_caaOT = millis() + 250;
+      uint32_t tstep = stepperX.TSTEP();
+      uint16_t sgresult = stepperX.sg_result();
+      SERIAL_EOL();
+      SERIAL_ECHO( tstep );
+      SERIAL_ECHOPGM( ", sgresult: ");
+      bool x_pin_triggered = (READ(X_MIN_PIN) != 0);
+      if (x_pin_triggered) {
+        SERIAL_ECHOPGM(" DIAG1HIGH ");
+      }
+      SERIAL_ECHOLN( sgresult );
+    }
+  */
+
   planner.check_axes_activity();
 }
+
+#if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+  void tmc_recover_crash() {
+    SERIAL_EOL();
+    SERIAL_ECHOLNPGM( "Trying to recover from crash..." );
+
+    /* printer recover procedure */
+    #if ENABLED(SDSUPPORT)
+      bool sdprintpaused = false;
+      if (card.sdprinting) {
+        card.pauseSDPrint();
+        sdprintpaused = true;
+      }
+    #endif
+
+    /* quick stop! */
+    quickstop_stepper();
+
+    stepper.synchronize();
+    float rehome_resume_position[XYZE];
+    COPY(rehome_resume_position, current_position);
+
+    /* move the Z a little bit, obut only if its under desired height */
+    do_blocking_move_to_z(min(current_position[Z_AXIS] + REHOME_Z_RAISE, Z_MAX_POS), REHOME_Z_FEEDRATE);
+    stepper.synchronize();
+  
+    /* home X and Y */
+    endstops.enable(true);
+    homeaxis(X_AXIS);
+    homeaxis(Y_AXIS);
+    endstops.not_homing();
+
+    /* move the X and Y to saved position */
+    do_blocking_move_to_xy(rehome_resume_position[X_AXIS], rehome_resume_position[Y_AXIS], REHOME_XY_FEEDRATE);
+
+    /* move the Z to saved position */
+    do_blocking_move_to_z(rehome_resume_position[Z_AXIS], REHOME_Z_FEEDRATE);
+
+    stepper.synchronize();
+
+    /* continue the print */
+    #if ENABLED(SDSUPPORT)
+      if (sdprintpaused) {
+        card.startFileprint();
+      }
+    #endif
+
+    tmc_reset_crash();
+  } // tmc_recover_crash
+#endif
 
 /**
  * Standard idle routine keeps the machine alive

@@ -177,32 +177,48 @@
   // Use internal reference voltage for current calculations. This is the default.
   // Following values from Trinamic's spreadsheet with values for a NEMA17 (42BYGHW609)
   // https://www.trinamic.com/products/integrated-circuits/details/tmc2130/
-  void tmc2130_init(TMC2130Stepper &st, const uint16_t microsteps, const uint32_t thrs, const float spmm) {
-    st.begin();
+  void tmc2130_init(TMC2130Stepper &st, const uint16_t microsteps, const uint32_t thrs, const float spmm, bool &alreadyInitialized) {
+    if ( !alreadyInitialized ) {
+      st.begin();
+      alreadyInitialized = true;
+    }
+
     st.setCurrent(st.getCurrent(), R_SENSE, HOLD_MULTIPLIER);
     st.microsteps(microsteps);
     st.blank_time(24);
-    st.off_time(5); // Only enables the driver if used with stealthChop
+    st.off_time(4); // Only enables the driver if used with stealthChop
     st.interpolate(INTERPOLATE);
     st.power_down_delay(128); // ~2s until driver lowers to hold current
-    st.hysterisis_start(3);
+    st.hysterisis_start(0); /* hysteresis calculated by Trinamic TMC calculator for 17HS4401 -> 1 to -1 */
     st.hysterisis_end(2);
     st.diag1_active_high(1); // For sensorless homing
+    st.fullstep_threshold(false); //newer turn to full stepping mode
+    st.pwm_freq(1); // f_pwm = 2/683 f_clk // stealth_freq ??
+
+    if (tmc_modeset_power) {
+      st.stealthChop(0); /* disable stealthChop */
+      st.chopper_mode(0); /* enable spreadCycle mode */
+      st.THIGH( 0 ); // THIGH to 0 to enable sgt reading (anyway, its 0 by default)
+      st.TCOOLTHRS(TMC2130_TCOOL_THRS); /* coolStep and stallGuard threshold (TSTEP <= TCOOLTHRS => ON) */
+    } else
     if (tmc_mode_stealthchop_enabled) {
-      st.stealth_freq(1); // f_pwm = 2/683 f_clk
       st.stealth_autoscale(1);
       st.stealth_gradient(5);
       st.stealth_amplitude(255);
+      //st.TCOOLTHRS(0);
+      //st.THIGH(1024UL * 1024UL - 1UL); /* make sure that coolStep will work in whole range of velocity */
       st.stealthChop(1);
       if (tmc_mode_hybrid) {
-        st.stealth_max_speed(12650000UL*microsteps/(256*thrs*spmm));
+        /* TPWMTHRS <-> stealth_max_speed */
+        st.TPWMTHRS(12650000UL*microsteps/(256*thrs*spmm));
+      } else {
+        st.TPWMTHRS(12650000UL*microsteps/(256*thrs*200)); /* if over 300mm/s turn back to spreadCycle same as in hybrid mode */
       }
     }
-    st.coolstep_min_speed(1024UL * 1024UL - 1UL); // sensorless_homing always enabled for mk2clone r2
     st.GSTAT(); // Clear GSTAT
   }
 
-  #define _TMC2130_INIT(ST, SPMM) tmc2130_init(stepper##ST, ST##_MICROSTEPS, ST##_HYBRID_THRESHOLD, SPMM)
+  #define _TMC2130_INIT(ST, SPMM) tmc2130_init(stepper##ST, ST##_MICROSTEPS, ST##_HYBRID_THRESHOLD, SPMM, initializedStepper##ST)
 
   void tmc2130_init() {
     #if ENABLED(X_IS_TMC2130)

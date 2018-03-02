@@ -963,12 +963,12 @@ void kill_screen(const char* lcd_msg) {
   #if ENABLED(ENABLE_CALIBRATION_MENU)
   
     void lcd_calibration_z() {
-      enqueue_and_echo_commands_P(PSTR("G28\nG1 Z180\nG1 Z210 F500\nG1 Z50\nG28"));
+      enqueue_and_echo_commands_P(PSTR("G28\nG1 X125 Z180 F10000\nG1 Z210 F500\nG1 Z50 F10000\nG28"));
       lcd_return_to_status();
     }
     
     void lcd_calibration_mesh() {
-      enqueue_and_echo_commands_P(PSTR("M500\nM501\nG28\nG29 P1\nG29 P2\nG29 F 1.0\nG29 A\nG29 S1\nM500"));
+      enqueue_and_echo_commands_P(PSTR("M500\nM501\nG28\nG29 P1\nG29 P2 B T\nG29 F 5.0\nG29 A\nG29 S1\nM500"));
       lcd_return_to_status();
     }
   
@@ -996,7 +996,7 @@ void kill_screen(const char* lcd_msg) {
     // Additional access to Z babystepping (offset) from menu as on MK2 (only when printing)
     //
     #if ENABLED(BABYSTEPPING) && ENABLED(BABYSTEP_QUICK_MENU)
-      if (current_position[Z_AXIS] <= 0.8 && (planner.movesplanned() || IS_SD_PRINTING)) {
+      if (current_position[Z_AXIS] <= 0.3 && (planner.movesplanned() || IS_SD_PRINTING)) {
         #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
           MENU_ITEM(submenu, MSG_ZPROBE_ZOFFSET, lcd_babystep_zoffset);
         #else
@@ -2586,7 +2586,7 @@ void kill_screen(const char* lcd_msg) {
     // Auto Home
     //
     MENU_ITEM(gcode, MSG_AUTO_HOME, PSTR("G28"));
-    #if ENABLED(INDIVIDUAL_AXIS_HOMING_MENU)
+    #if ENABLED(LCD_EXPERT_MENU) && ENABLED(INDIVIDUAL_AXIS_HOMING_MENU)
       MENU_ITEM(gcode, MSG_AUTO_HOME_X, PSTR("G28 X"));
       MENU_ITEM(gcode, MSG_AUTO_HOME_Y, PSTR("G28 Y"));
       MENU_ITEM(gcode, MSG_AUTO_HOME_Z, PSTR("G28 Z"));
@@ -2595,21 +2595,23 @@ void kill_screen(const char* lcd_msg) {
     //
     // Level Bed
     //
-    #if ENABLED(AUTO_BED_LEVELING_UBL)
-      MENU_ITEM(submenu, MSG_UBL_LEVEL_BED, _lcd_ubl_level_bed);
-    #elif ENABLED(LCD_BED_LEVELING)
-      #if ENABLED(PROBE_MANUALLY)
-        if (!g29_in_progress)
+    #if ENABLED(LCD_EXPERT_MENU)
+      #if ENABLED(AUTO_BED_LEVELING_UBL)
+        MENU_ITEM(submenu, MSG_UBL_LEVEL_BED, _lcd_ubl_level_bed);
+      #elif ENABLED(LCD_BED_LEVELING)
+        #if ENABLED(PROBE_MANUALLY)
+          if (!g29_in_progress)
+        #endif
+            MENU_ITEM(submenu, MSG_BED_LEVELING,
+              #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
+                _lcd_goto_bed_leveling
+              #else
+                lcd_bed_leveling
+              #endif
+            );
+      #elif PLANNER_LEVELING && DISABLED(PROBE_MANUALLY)
+        MENU_ITEM(gcode, MSG_BED_LEVELING, PSTR("G28\nG29"));
       #endif
-          MENU_ITEM(submenu, MSG_BED_LEVELING,
-            #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
-              _lcd_goto_bed_leveling
-            #else
-              lcd_bed_leveling
-            #endif
-          );
-    #elif PLANNER_LEVELING && DISABLED(PROBE_MANUALLY)
-      MENU_ITEM(gcode, MSG_BED_LEVELING, PSTR("G28\nG29"));
     #endif
 
     #if ENABLED(LEVEL_BED_CORNERS) && DISABLED(LCD_BED_LEVELING)
@@ -3197,21 +3199,40 @@ void kill_screen(const char* lcd_msg) {
 
   #endif
 
-  void lcd_control_tmc_mode_menu() {
-    START_MENU();
-    MENU_BACK(MSG_CONTROL);
-    MENU_ITEM(gcode, MSG_TMCMODE_POWER, PSTR("M950"));
-    MENU_ITEM(gcode, MSG_TMCMODE_STEALTH, PSTR("M951"));
-    MENU_ITEM(gcode, MSG_TMCMODE_HYBRID, PSTR("M952"));
-    END_MENU();
-  }
+  #if ENABLED(HAVE_TMC2130)
+    void lcd_control_tmc_mode_set_power() {
+      enqueue_and_echo_commands_P(PSTR("M950"));
+      lcd_return_to_status();
+    }
+
+    void lcd_control_tmc_mode_set_stealth() {
+      enqueue_and_echo_commands_P(PSTR("M951"));
+      lcd_return_to_status();
+    }
+
+    void lcd_control_tmc_mode_set_hybrid() {
+      enqueue_and_echo_commands_P(PSTR("M952"));
+      lcd_return_to_status();
+    }
+
+    void lcd_control_tmc_mode_menu() {
+      START_MENU();
+      MENU_BACK(MSG_CONTROL);
+      MENU_ITEM(function, MSG_TMCMODE_POWER, lcd_control_tmc_mode_set_power);
+      MENU_ITEM(function, MSG_TMCMODE_STEALTH, lcd_control_tmc_mode_set_stealth);
+      MENU_ITEM(function, MSG_TMCMODE_HYBRID, lcd_control_tmc_mode_set_hybrid);
+      END_MENU();
+    }
+  #endif
 
   void lcd_control_menu() {
     START_MENU();
     MENU_BACK(MSG_MAIN);
     MENU_ITEM(submenu, MSG_TEMPERATURE, lcd_control_temperature_menu);
     MENU_ITEM(submenu, MSG_MOTION, lcd_control_motion_menu);
-    MENU_ITEM(submenu, MSG_TMCMODE, lcd_control_tmc_mode_menu);
+    #if ENABLED(HAVE_TMC2130)
+      MENU_ITEM(submenu, MSG_TMCMODE, lcd_control_tmc_mode_menu);
+    #endif
     MENU_ITEM(submenu, MSG_FILAMENT, lcd_control_filament_menu);
 
     #if HAS_LCD_CONTRAST
@@ -3252,11 +3273,11 @@ void kill_screen(const char* lcd_msg) {
   #if ENABLED(PID_AUTOTUNE_MENU)
 
     #if ENABLED(PIDTEMP)
-      int16_t autotune_temp[HOTENDS] = ARRAY_BY_HOTENDS1(150);
+      int16_t autotune_temp[HOTENDS] = ARRAY_BY_HOTENDS1(200);
     #endif
 
     #if ENABLED(PIDTEMPBED)
-      int16_t autotune_temp_bed = 70;
+      int16_t autotune_temp_bed = 60;
     #endif
 
     void _lcd_autotune(int16_t e) {
@@ -3681,21 +3702,23 @@ void kill_screen(const char* lcd_msg) {
       MENU_ITEM_EDIT(float32, MSG_ZPROBE_ZOFFSET, &zprobe_zoffset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX);
     #endif
 
-    // M203 / M205 - Feedrate items
-    MENU_ITEM(submenu, MSG_VELOCITY, lcd_control_motion_velocity_menu);
+    #if ENABLED(LCD_EXPERT_MENU)
+      // M203 / M205 - Feedrate items
+      MENU_ITEM(submenu, MSG_VELOCITY, lcd_control_motion_velocity_menu);
 
-    // M201 - Acceleration items
-    MENU_ITEM(submenu, MSG_ACCELERATION, lcd_control_motion_acceleration_menu);
+      // M201 - Acceleration items
+      MENU_ITEM(submenu, MSG_ACCELERATION, lcd_control_motion_acceleration_menu);
 
-    // M205 - Max Jerk
-    MENU_ITEM(submenu, MSG_JERK, lcd_control_motion_jerk_menu);
+      // M205 - Max Jerk
+      MENU_ITEM(submenu, MSG_JERK, lcd_control_motion_jerk_menu);
 
-    // M92 - Steps Per mm
-    MENU_ITEM(submenu, MSG_STEPS_PER_MM, lcd_control_motion_steps_per_mm_menu);
+      // M92 - Steps Per mm
+      MENU_ITEM(submenu, MSG_STEPS_PER_MM, lcd_control_motion_steps_per_mm_menu);
 
-    // M540 S - Abort on endstop hit when SD printing
-    #if ENABLED(ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED)
-      MENU_ITEM_EDIT(bool, MSG_ENDSTOP_ABORT, &stepper.abort_on_endstop_hit);
+      // M540 S - Abort on endstop hit when SD printing
+      #if ENABLED(ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED)
+        MENU_ITEM_EDIT(bool, MSG_ENDSTOP_ABORT, &stepper.abort_on_endstop_hit);
+      #endif
     #endif
 
     END_MENU();
@@ -4017,8 +4040,10 @@ void kill_screen(const char* lcd_msg) {
       START_MENU();
       MENU_BACK(MSG_MAIN);
       MENU_ITEM(submenu, MSG_INFO_PRINTER_MENU, lcd_info_printer_menu);        // Printer Info >
-      MENU_ITEM(submenu, MSG_INFO_BOARD_MENU, lcd_info_board_menu);            // Board Info >
-      MENU_ITEM(submenu, MSG_INFO_THERMISTOR_MENU, lcd_info_thermistors_menu); // Thermistors >
+      #if ENABLED(LCD_EXPERT_MENU)
+        MENU_ITEM(submenu, MSG_INFO_BOARD_MENU, lcd_info_board_menu);            // Board Info >
+        MENU_ITEM(submenu, MSG_INFO_THERMISTOR_MENU, lcd_info_thermistors_menu); // Thermistors >
+      #endif
       #if ENABLED(PRINTCOUNTER)
         MENU_ITEM(submenu, MSG_INFO_STATS_MENU, lcd_info_stats_menu);          // Printer Statistics >
       #endif

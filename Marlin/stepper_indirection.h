@@ -89,6 +89,7 @@
   #else
     #if ENABLED(HAVE_TMC2130) && ENABLED(X_IS_TMC2130)
       extern TMC2130Stepper stepperX;
+      static bool initializedStepperX = false;
     #elif ENABLED(HAVE_TMC2208) && ENABLED(X_IS_TMC2208)
       extern TMC2208Stepper stepperX;
     #endif
@@ -122,6 +123,7 @@
   #else
     #if ENABLED(HAVE_TMC2130) && ENABLED(Y_IS_TMC2130)
       extern TMC2130Stepper stepperY;
+      static bool initializedStepperY = false;
     #elif ENABLED(HAVE_TMC2208) && ENABLED(Y_IS_TMC2208)
       extern TMC2208Stepper stepperY;
     #endif
@@ -155,6 +157,7 @@
   #else
     #if ENABLED(HAVE_TMC2130) && ENABLED(Z_IS_TMC2130)
       extern TMC2130Stepper stepperZ;
+      static bool stepperZinitialized = false;
     #elif ENABLED(HAVE_TMC2208) && ENABLED(Z_IS_TMC2208)
       extern TMC2208Stepper stepperZ;
     #endif
@@ -293,6 +296,7 @@
   #else
     #if ENABLED(HAVE_TMC2130) && ENABLED(E0_IS_TMC2130)
       extern TMC2130Stepper stepperE0;
+      static bool initializedStepperE0 = false;
     #elif ENABLED(HAVE_TMC2208) && ENABLED(E0_IS_TMC2208)
       extern TMC2208Stepper stepperE0;
     #endif

@@ -7,8 +7,11 @@
 BETA 
 This version of Marlin is made for MK2Clone r2 especially for Prusa i3 MK2 Clone.
 
-## Changes
+## Changes worth mentioning
  * Configuration premade for MK2Clone r2
+ * X/Y crash detection (missed step) with stallGuard2 from TMC2130 (EARLY alfa version)
+ * spreadCycle/stealthChop (and hybrid) mode live changes - M950, M951, M952 (beta) + additional option in LCD for that
+ * Extruder stall detection with TMC2130 (EARLY alfa version)
  * Calibration menu
    * Calibration of Z axis by moving to top
    * Automated UBL - G29 P1, P2 with manual measurement (if needed) and save mesh

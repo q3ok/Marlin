@@ -352,7 +352,7 @@
 #define X_HOME_BUMP_MM 0
 #define Y_HOME_BUMP_MM 0
 #define Z_HOME_BUMP_MM 2
-#define HOMING_BUMP_DIVISOR { 2, 2, 3 }  // Re-Bump Speed Divisor (Divides the Homing Feedrate)
+#define HOMING_BUMP_DIVISOR { 2, 2, 4 }  // Re-Bump Speed Divisor (Divides the Homing Feedrate)
 //#define QUICK_HOME                     // If homing includes X and Y, do a diagonal move initially (DOES NOT WORK WITH TMC2130 and SENSORLESS_HOMING)
 
 // When G28 is called, this option will make Y home before X
@@ -482,6 +482,9 @@
 // The timeout (in ms) to return to the status screen from sub-menus
 //#define LCD_TIMEOUT_TO_STATUS 15000
 
+// Comment this out to remove all the not necessary options from menu ("hardened" firmware)
+#define LCD_EXPERT_MENU
+
 /**
  * LED Control Menu
  * Enable this feature to add LED Control to the LCD menu
@@ -586,7 +589,7 @@
    * This feature must be enabled with "M540 S1" or from the LCD menu.
    * To have any effect, endstops must be enabled during SD printing.
    */
-  #define ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED
+  //#define ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED
 
   /**
    * This option makes it easier to print the same SD Card file again.
@@ -661,7 +664,7 @@
   #define BABYSTEP_INVERT_Z false    // Change if Z babysteps should go the other way
   #define BABYSTEP_MULTIPLICATOR 1   // Babysteps are very small. Increase for faster motion.
   #define BABYSTEP_ZPROBE_OFFSET   // Enable to combine M851 and Babystepping
-  //#define DOUBLECLICK_FOR_Z_BABYSTEPPING // Double-click on the Status Screen for Z Babystepping.
+  #define DOUBLECLICK_FOR_Z_BABYSTEPPING // Double-click on the Status Screen for Z Babystepping.
   //#define BABYSTEP_ZPROBE_GFX_OVERLAY // Enable graphical overlay on Z-offset editor
   #define BABYSTEP_QUICK_MENU   // Adds Z babystepping when printing on top of the menu when printing
 #endif
@@ -1094,13 +1097,6 @@
   #define TMC_SW_MISO       44
   #define TMC_SW_SCK        64
 
-
-  /**
-   * Use Trinamic's ultra quiet stepping mode.
-   * When disabled, Marlin will use spreadCycle stepping mode.
-   */
-  #define STEALTHCHOP
-
   /**
    * Monitor Trinamic TMC2130 and TMC2208 drivers for error conditions,
    * like overtemperature and short to ground. TMC2208 requires hardware serial.
@@ -1112,7 +1108,7 @@
    * M912 - Clear stepper driver overtemperature pre-warn condition flag.
    * M122 S0/1 - Report driver parameters (Requires TMC_DEBUG)
    */
-  //#define MONITOR_DRIVER_STATUS
+  #define MONITOR_DRIVER_STATUS
 
   #if ENABLED(MONITOR_DRIVER_STATUS)
     #define CURRENT_STEP_DOWN     50  // [mA]
@@ -1123,10 +1119,8 @@
   /**
    * The driver will switch to spreadCycle when stepper speed is over HYBRID_THRESHOLD.
    * This mode allows for faster movements at the expense of higher noise levels.
-   * STEALTHCHOP needs to be enabled.
    * M913 X/Y/Z/E to live tune the setting
    */
-  #define HYBRID_THRESHOLD
 
   #define X_HYBRID_THRESHOLD      60  // [mm/s]
   #define X2_HYBRID_THRESHOLD    100
@@ -1161,41 +1155,49 @@
   #define SENSORLESS_HOMING // TMC2130 only
 
   #if ENABLED(SENSORLESS_HOMING)
-    #define X_HOMING_SENSITIVITY  3
-    #define Y_HOMING_SENSITIVITY  3
+    #define X_HOMING_SENSITIVITY  3 /* SG */
+    #define Y_HOMING_SENSITIVITY  3 /* SG */
 
     /**
      * stallGuard2 can be also used to detect if there are missed steps, when the endstop will be triggered
      * the printer can raise Z a little rehome X and Y and then go back to print
-     * (ALFA VERSION, DOESNT WORK RIGHT NOW)
+     * DIAG1 must be connected same as for SENSORLESS_HOMING
+     * (BETA VERSION)
      */
     //#define REHOME_XY_ON_ENDSTOP_HIT
 
     #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
+      #define REHOME_X_SENSITIVITY 3 /* sg */
+      #define REHOME_Y_SENSITIVITY 3 /* sg */
+      #define REHOME_X_THRESHOLD 100 /* amount of times sgt went to 0 before triggering rehome */
+      #define REHOME_Y_THRESHOLD 100 /* amount of times sgt went to 0 before triggering rehome */
       #define REHOME_XY_FEEDRATE 60
       #define REHOME_Z_FEEDRATE 10
       #define REHOME_Z_RAISE 5
     #endif
+
+    #define TMC2130_TCOOL_THRS 200 //170
     
   #endif
 
   /**
    * Use stallGuard2 to detect clogged filament, and automatically trigger the filament change same as filament runout
-   * You need to enable FILAMENT_RUNOUT_SENSOR and wire DIAG1 pin to the filament sensor pin (RAMPS D4 by default)
-   * Sensitivity is set in same way as for sensorless homing
-   * (NOT TESTED YET)
+   * Sensitivity is set in same way as for sensorless homing, but no additional wiring is needed (reads directly from SPI)
+   * (BETA VERSION)
    */
-  #define EXTRUDER_STALL_DETECTION
+  //#define EXTRUDER_STALL_DETECTION
   
   #if ENABLED(EXTRUDER_STALL_DETECTION)
-    #define E0_STALL_SENSITIVITY 10
+    #define E0_STALL_SENSITIVITY 5
+    #define E0_STALL_THRESHOLD 30 /* if sgt fall below this value, consider that the step was missed */
+    #define E0_STALL_SCRIPT "M600" /* trigger pause with filament change */
   #endif
 
   /**
    * Enable M122 debugging command for TMC stepper drivers.
    * M122 S0/1 will enable continous reporting.
    */
-  //#define TMC_DEBUG
+  #define TMC_DEBUG
 
   /**
    * You can set your own advanced settings by filling in predefined functions.

@@ -1453,8 +1453,6 @@ static_assert(1 >= 0
       || ENABLED( E3_IS_TMC2130 ) \
       || ENABLED( E4_IS_TMC2130 ) )
     #error "HAVE_TMC2130 requires at least one TMC2130 stepper to be set."
-  #elif ENABLED(HYBRID_THRESHOLD) && DISABLED(STEALTHCHOP)
-    #error "Enable STEALTHCHOP to use HYBRID_THRESHOLD."
   #elif defined(AUTOMATIC_CURRENT_CONTROL)
     #error "AUTOMATIC_CURRENT_CONTROL is now MONITOR_DRIVER_STATUS. Please update your configuration."
   #endif
@@ -1476,10 +1474,6 @@ static_assert(1 >= 0
     || ENABLED( E2_IS_TMC2208 ) \
     || ENABLED( E3_IS_TMC2208 ) )
   #error "HAVE_TMC2208 requires at least one TMC2208 stepper to be set."
-#endif
-
-#if ENABLED(HYBRID_THRESHOLD) && DISABLED(STEALTHCHOP)
-  #error "Enable STEALTHCHOP to use HYBRID_THRESHOLD."
 #endif
 
 /**
