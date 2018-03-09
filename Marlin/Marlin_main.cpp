@@ -2891,6 +2891,7 @@ static void do_homing_move(const AxisEnum axis, const float distance, const floa
     /*if (enable) {
       st.sfilt(false);
     }*/
+    st.TCOOLTHRS(0);
     st.TCOOLTHRS(1024UL * 1024UL - 1UL); /* full speed range */
     /* disable and enable coolStep to make sure that stallGuard will work */
     /* From TMC2130 Datasheet: The stall detection and stallGuard output

@@ -58,6 +58,7 @@ void tmc_mode_set_hybrid() {
 
 #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
   void tmc_isr() {
+    return; 
     if ( !tmc_modeset_power || tmc_crash_detected || endstops.enabled ) return;
 
     bool x_pin_triggered = (READ(X_MIN_PIN) != 0); // diag1 connected to x/y_min pins

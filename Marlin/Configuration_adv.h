@@ -1055,10 +1055,10 @@
   #define INTERPOLATE       true  // Interpolate X/Y/Z_MICROSTEPS to 256
 
   #define X_CURRENT          800  // rms current in mA. Multiply by 1.41 for peak current.
-  #define X_MICROSTEPS        32  // 0..256
+  #define X_MICROSTEPS        16  // 0..256
 
   #define Y_CURRENT          800
-  #define Y_MICROSTEPS        32
+  #define Y_MICROSTEPS        16
 
   #define Z_CURRENT          800
   #define Z_MICROSTEPS        16
@@ -1156,7 +1156,7 @@
 
   #if ENABLED(SENSORLESS_HOMING)
     #define X_HOMING_SENSITIVITY  3 /* SG */
-    #define Y_HOMING_SENSITIVITY  3 /* SG */
+    #define Y_HOMING_SENSITIVITY  4 /* SG */
 
     /**
      * stallGuard2 can be also used to detect if there are missed steps, when the endstop will be triggered
@@ -1167,10 +1167,10 @@
     //#define REHOME_XY_ON_ENDSTOP_HIT
 
     #if ENABLED(REHOME_XY_ON_ENDSTOP_HIT)
-      #define REHOME_X_SENSITIVITY 3 /* sg */
-      #define REHOME_Y_SENSITIVITY 3 /* sg */
-      #define REHOME_X_THRESHOLD 100 /* amount of times sgt went to 0 before triggering rehome */
-      #define REHOME_Y_THRESHOLD 100 /* amount of times sgt went to 0 before triggering rehome */
+      #define REHOME_X_SENSITIVITY 0 /* sg */
+      #define REHOME_Y_SENSITIVITY 0 /* sg */
+      #define REHOME_X_THRESHOLD 64 /* amount of times sgt went to 0 before triggering rehome */
+      #define REHOME_Y_THRESHOLD 64 /* amount of times sgt went to 0 before triggering rehome */
       #define REHOME_XY_FEEDRATE 60
       #define REHOME_Z_FEEDRATE 10
       #define REHOME_Z_RAISE 5
@@ -1188,7 +1188,7 @@
   //#define EXTRUDER_STALL_DETECTION
   
   #if ENABLED(EXTRUDER_STALL_DETECTION)
-    #define E0_STALL_SENSITIVITY 5
+    #define E0_STALL_SENSITIVITY 19
     #define E0_STALL_THRESHOLD 30 /* if sgt fall below this value, consider that the step was missed */
     #define E0_STALL_SCRIPT "M600" /* trigger pause with filament change */
   #endif
